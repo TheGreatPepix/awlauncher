@@ -286,7 +286,7 @@ func getBrowserCode(ctx context.Context) (string, error) {
 			if !bridge.connected.Load() {
 				fmt.Printf("The browser has not reached the launcher yet. If it asks whether vkplay.ru may access apps on this device, allow it.\n"+
 					"If it offers to open VK Games, cancel that: this browser does not let the page talk to programs on this computer.\n"+
-					"Then open this link in Microsoft Edge or Google Chrome; the launcher keeps waiting:\n%s\n"+
+					"Then open this link in your browser; the launcher keeps waiting:\n%s\n"+
 					"To sign in with another account:\n%s\n", loginURL, freshURL)
 			}
 		}
