@@ -476,7 +476,7 @@ func (g *guiApp) onMessage(message string) {
 			}
 			return false, err
 		})
-	case "verify", "removeBranch":
+	case "verify", "removeBranch", "removeMainClient":
 		g.clientCommand(c.Cmd, c.Value, c.Branch)
 	case "clearDownloads":
 		g.run(operation{Title: "Deleting downloaded patches", Game: true}, func(s *session) (bool, error) {
@@ -651,6 +651,12 @@ func (g *guiApp) clientCommand(cmd, kind, branch string) {
 	if cmd == "verify" {
 		g.run(operation{Title: "Checking " + c.name(), Game: true}, func(s *session) (bool, error) {
 			return false, s.verifyClient(c)
+		})
+		return
+	}
+	if cmd == "removeMainClient" {
+		g.run(operation{Title: "Removing " + c.name(), Game: true}, func(s *session) (bool, error) {
+			return false, s.removeMainClient(c)
 		})
 		return
 	}

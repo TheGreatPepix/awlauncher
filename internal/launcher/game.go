@@ -395,6 +395,29 @@ func (s *session) chooseClient(question string) (gameClient, error) {
 	return clients[n-1], nil
 }
 
+func (s *session) chooseMainClient() (gameClient, error) {
+	var clients []gameClient
+	for _, c := range installedConfiguredClients(s.cfg.get()) {
+		if c.Kind != clientBranch {
+			clients = append(clients, c)
+		}
+	}
+	if len(clients) == 0 {
+		return gameClient{}, errors.New("no main client is installed")
+	}
+	if len(clients) == 1 {
+		return clients[0], nil
+	}
+	for i, c := range clients {
+		s.p.sayf("  %d  %s, %s: %s\n", i+1, c.name(), c.Version, c.Dir)
+	}
+	n, err := strconv.Atoi(firstWord(s.p.line("Client number: ")))
+	if err != nil || n < 1 || n > len(clients) {
+		return gameClient{}, errQuit
+	}
+	return clients[n-1], nil
+}
+
 func (s *session) verifyClient(c gameClient) error {
 	if err := ensureGameClosed(); err != nil {
 		return err
@@ -541,6 +564,38 @@ func (s *session) removeBranch(c gameClient) error {
 		return err
 	}
 	s.p.sayf("FX ID %s is removed.\n", c.Branch)
+	return nil
+}
+
+func (s *session) removeMainClient(c gameClient) error {
+	if c.Kind != clientVK && c.Kind != clientFX {
+		return errors.New("only a main client can be removed here")
+	}
+	if err := ensureGameClosed(); err != nil {
+		return err
+	}
+	var affected []string
+	removesVK := false
+	for _, installed := range installedConfiguredClients(s.cfg.get()) {
+		if installed.Kind != clientBranch && strings.EqualFold(filepath.Clean(installed.Dir), filepath.Clean(c.Dir)) {
+			affected = append(affected, installed.name())
+			removesVK = removesVK || installed.Kind == clientVK
+		}
+	}
+	if len(affected) == 0 {
+		return errors.New("the client is no longer installed")
+	}
+	question := fmt.Sprintf("Remove %s from %s?", strings.Join(affected, " and "), c.Dir)
+	if !s.p.yes(question, false) {
+		return errQuit
+	}
+	if err := s.removeClientDir(c.Dir); err != nil {
+		return err
+	}
+	if removesVK {
+		s.found.game = nil
+	}
+	s.p.sayf("Removed %s.\n", strings.Join(affected, " and "))
 	return nil
 }
 
@@ -711,6 +766,9 @@ func (s *session) gameMenu() {
 		s.p.sayf("FX ID folder: %s\n", s.cfg.get().FXGame)
 	}
 	s.p.say("  c        delete downloaded patches")
+	if len(info.Clients) > branches {
+		s.p.say("  d        remove a main client")
+	}
 	if branches > 0 {
 		s.p.say("  r        remove a closed branch")
 	}
@@ -745,6 +803,11 @@ func (s *session) gameMenu() {
 		var c gameClient
 		if c, err = s.chooseInstalledBranch(); err == nil {
 			err = s.removeBranch(c)
+		}
+	case "d", "в":
+		var c gameClient
+		if c, err = s.chooseMainClient(); err == nil {
+			err = s.removeMainClient(c)
 		}
 	case "u", "г":
 		err = s.uninstallGame()

@@ -348,12 +348,12 @@ function renderGame() {
   box.textContent = "";
   for (const c of clients) {
     const name = CLIENT_NAMES[c.kind] ? t(CLIENT_NAMES[c.kind]) : "FX ID " + c.branch;
-    const sub = c.kind === "branch" ? `${c.version} · ${c.dir}` : c.version;
+    const sub = `${c.version} · ${c.dir}`;
     box.append(el("div", { class: "list-item" },
       icon(c.kind === "branch" ? "branch" : "globe", "lead"),
       el("div", { class: "list-text" }, el("div", { class: "list-title", text: name }), el("div", { class: "list-sub", text: sub })),
       c.kind === "branch" ? el("button", { class: "btn text", disabled: busy, onclick: () => send({ cmd: "branchFolder", branch: c.branch }) }, t("Folder…")) : null,
-      c.kind === "branch" ? el("button", { class: "btn text", disabled: busy, onclick: () => send({ cmd: "removeBranch", value: c.kind, branch: c.branch }) }, t("Remove")) : null,
+      el("button", { class: "btn text", disabled: busy, onclick: () => send({ cmd: c.kind === "branch" ? "removeBranch" : "removeMainClient", value: c.kind, branch: c.branch || "" }) }, t("Remove")),
       el("button", { class: "btn tonal", disabled: busy, title: t("Check every file and download the ones that differ"), onclick: () => send({ cmd: "verify", value: c.kind, branch: c.branch || "" }) }, icon("verify", "sm"), t("Check files"))));
   }
   const installed = (kind, branch) => clients.some((c) => c.kind === kind && (kind !== "branch" || c.branch.toLowerCase() === branch.toLowerCase()));
@@ -879,6 +879,7 @@ function onDone(ev) {
     case "ok":
       if (ev.title.startsWith("Uninstalling")) snackbar(t("The game is uninstalled"));
       else if (ev.title.startsWith("Signing in")) snackbar(t("Account added"));
+      else if (ev.title.startsWith("Removing VK Play") || ev.title.startsWith("Removing FX ID")) snackbar(t("Client removed"));
       else if (ev.title.startsWith("Removing")) snackbar(t("Account removed"));
       else if (ev.title === "Updating AWLauncher") snackbar(t("The update is installed. It takes effect on the next start."));
       break;
@@ -1104,6 +1105,10 @@ const demo = {
           demo.uninstalled = true;
           emit({ type: "done", status: "ok", title: "Uninstalling the game" });
         }
+        if (cmd.prompt === 10 && cmd.value === "yes") {
+          demo.mainRemoved = true;
+          emit({ type: "done", status: "ok", title: "Removing VK Play" });
+        }
         if (cmd.prompt !== 1) break;
         let done = 0;
         const total = 3.4 * GiB;
@@ -1174,8 +1179,8 @@ const demo = {
         break;
       case "gameInfo":
         emit({ type: "gameInfo", dir: "H:\\Games\\Armored Warfare", downloads: 3.2 * GiB, free: 812.4 * GiB, clients: demo.uninstalled ? [] : [
-          { kind: "vkplay", dir: "H:\\Games\\Armored Warfare", version: "build 442" },
-          { kind: "fxid", branch: "default", dir: "H:\\Games\\Armored Warfare", version: "0.566.1" },
+          ...(!demo.mainRemoved ? [{ kind: "vkplay", dir: "H:\\Games\\Armored Warfare", version: "build 442" },
+          { kind: "fxid", branch: "default", dir: "H:\\Games\\Armored Warfare", version: "0.566.1" }] : []),
           ...(demo.downloaded ? [{ kind: "branch", branch: "SuperTest", dir: "H:\\Games\\Armored Warfare SuperTest", version: "0.567.0" }] : [])] });
         break;
       case "availableClients":
@@ -1222,6 +1227,9 @@ const demo = {
       case "uninstall":
         emit({ type: "prompt", id: 6, op: "Uninstalling the game", kind: "confirm", question: "Uninstall Armored Warfare and free about 136.6 GiB? Your accounts stay in the launcher.", default: false,
           context: ["  VK Play, build 442: H:\\Games\\Armored Warfare", "  FX ID SuperTest, 0.565.1: H:\\Games\\Armored Warfare SuperTest"] });
+        break;
+      case "removeMainClient":
+        emit({ type: "prompt", id: 10, op: "Removing VK Play", kind: "confirm", question: "Remove VK Play and FX ID main branch from H:\\Games\\Armored Warfare?", default: false });
         break;
     }
     if (cmd.cmd === "answer" && cmd.prompt !== 1) end(cmd.prompt);

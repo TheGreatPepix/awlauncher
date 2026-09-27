@@ -152,6 +152,60 @@ func TestUninstallForgetsTheGameFolder(t *testing.T) {
 	}
 }
 
+func TestRemoveMainClientKeepsOtherFoldersAndConfiguredPaths(t *testing.T) {
+	parent := t.TempDir()
+	vk := filepath.Join(parent, "VK")
+	fx := filepath.Join(parent, "FX")
+	branch := branchInstallDir(fx, "SuperTest")
+	writeTree(t, vk, map[string][]byte{"-gup-/last.xml": []byte(`<Manifest Build="442"/>`)})
+	writeBranchState(t, fx, branchState{Branch: fxDefaultBranch, Version: "main"})
+	writeBranchState(t, branch, branchState{Branch: "SuperTest", Version: "test"})
+	s := gameSession(t, vk, true)
+	if err := s.cfg.update(func(c *launcherConfig) { c.SeparateMain = true; c.FXGame = fx }); err != nil {
+		t.Fatal(err)
+	}
+	fxClient, err := s.findClient(clientFX, "")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := s.removeMainClient(fxClient); err != nil {
+		t.Fatal(err)
+	}
+	if got := installedConfiguredClients(s.cfg.get()); len(got) != 2 || got[0].Kind != clientVK || got[1].Kind != clientBranch {
+		t.Fatalf("clients after removing FX main = %+v", got)
+	}
+	if s.cfg.get().FXGame != fx || s.cfg.get().Game != vk {
+		t.Fatal("configured install paths were lost")
+	}
+	if _, err := os.Stat(branchStatePath(branch)); err != nil {
+		t.Fatal("closed branch was removed:", err)
+	}
+}
+
+func TestRemoveSharedMainClientRemovesBothMainClientsButKeepsBranch(t *testing.T) {
+	root := filepath.Join(t.TempDir(), "Armored Warfare")
+	writeTree(t, root, map[string][]byte{"-gup-/last.xml": []byte(`<Manifest Build="442"/>`)})
+	writeBranchState(t, root, branchState{Branch: fxDefaultBranch, Version: "main"})
+	branch := branchInstallDir(root, "SuperTest")
+	writeBranchState(t, branch, branchState{Branch: "SuperTest", Version: "test"})
+	s := gameSession(t, root, true)
+	var question string
+	s.p.confirm = func(q string, _ bool) bool { question = q; return true }
+	fxClient, err := s.findClient(clientFX, "")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := s.removeMainClient(fxClient); err != nil {
+		t.Fatal(err)
+	}
+	if question != "Remove VK Play and FX ID main branch from "+root+"?" {
+		t.Fatalf("confirmation = %q", question)
+	}
+	if got := installedConfiguredClients(s.cfg.get()); len(got) != 1 || got[0].Kind != clientBranch {
+		t.Fatalf("clients after removing shared main folder = %+v", got)
+	}
+}
+
 func TestClearDownloadsRemovesPatchCache(t *testing.T) {
 	root := t.TempDir()
 	writeTree(t, root, map[string][]byte{"-gup-/awlauncher-cache/payload-1-2/a.7z": []byte("patch"), "-gup-/last.xml": []byte("x")})
