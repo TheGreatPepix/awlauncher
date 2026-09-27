@@ -557,18 +557,15 @@ function closeDialog() {
 function dialogOpen() { return $("dialog").classList.contains("on"); }
 
 function showAddAccount() {
-  const choice = (provider, badge, title, text) =>
+  const choice = (provider, title) =>
     el("button", { class: "choice state", onclick: () => { closeDialog(); send({ cmd: "add", provider }); } },
-      el("div", { class: "choice-badge " + provider, text: badge }),
-      el("div", { class: "choice-title", text: title }),
-      el("div", { class: "choice-text", text }));
+      el("span", { class: "choice-title", text: title }));
   openDialog({
     title: t("Add account"),
     body: [
-      el("p", { text: t("Choose the service of the new account.") }),
       el("div", { class: "choices" },
-        choice("vkplay", "VK", "VK Play", t("Russian servers. You sign in in the browser.")),
-        choice("fxid", "FX", "FX ID", t("Wishlist Games, international servers. You sign in with an e-mail code."))),
+        choice("vkplay", "VK Play"),
+        choice("fxid", "FX ID")),
     ],
     actions: [{ label: t("Cancel"), onClick: closeDialog }],
     onEscape: closeDialog,

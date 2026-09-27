@@ -350,12 +350,8 @@ input { font: inherit; color: inherit; }
 .option small { font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px; color: var(--primary); }
 
 .choices { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
-.choice { display: flex; flex-direction: column; gap: 10px; padding: 18px; border-radius: 20px; background: var(--surface-container-highest); color: var(--on-surface); text-align: left; }
-.choice-badge { width: 48px; height: 48px; border-radius: 16px; display: grid; place-items: center; color: #fff; font-weight: 700; }
-.choice-badge.vkplay { background: var(--vk); }
-.choice-badge.fxid { background: var(--fx); }
+.choice { display: flex; align-items: center; justify-content: center; min-height: 72px; padding: 18px; border-radius: 20px; background: var(--surface-container-highest); color: var(--on-surface); }
 .choice-title { font-size: 16px; font-weight: 500; }
-.choice-text { font-size: 13px; line-height: 18px; color: var(--on-surface-variant); }
 
 .menu {
   position: fixed; z-index: 12; min-width: 210px; padding: 8px 0; border-radius: 12px; background: var(--surface-container);
