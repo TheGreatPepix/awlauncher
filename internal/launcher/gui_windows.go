@@ -453,6 +453,12 @@ func (g *guiApp) onMessage(message string) {
 	case "folderInfo":
 		id, dir := c.Prompt, c.Value
 		go func() { g.emit(describeFolder(id, dir)) }()
+	case "copyLogs":
+		err := copyTextToClipboard(g.win.hwnd, c.Value)
+		if err != nil {
+			fmt.Println("Cannot copy logs:", err)
+		}
+		g.emit(map[string]any{"type": "clipboard", "ok": err == nil})
 	case "gameInfo":
 		go func() { g.emit(describeConfiguredGame(g.store.get())) }()
 	case "availableClients":

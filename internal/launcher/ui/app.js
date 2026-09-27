@@ -60,6 +60,7 @@ window.aw = {
       case "folderInfo": onFolderInfo(ev); break;
       case "done": onDone(ev); break;
       case "notice": snackbar(tb(ev.message)); break;
+      case "clipboard": snackbar(t(ev.ok ? "Logs copied" : "Could not copy")); break;
       case "game": state.running = ev.running; renderStatus(); break;
       case "signin": renderSignIn(ev); break;
       case "gameInfo": state.gameInfo = ev; renderGame(); break;
@@ -1042,9 +1043,7 @@ function setup() {
   for (const b of $("autostart-mode").children) b.addEventListener("click", () => { renderAutostart(b.dataset.mode); send({ cmd: "autostart", value: b.dataset.mode }); });
   $("progress-pause").addEventListener("click", () => send({ cmd: state.progress.paused ? "resume" : "pause" }));
   $("update-page").addEventListener("click", () => state.update && send({ cmd: "openLink", value: state.update.page }));
-  $("log-copy").addEventListener("click", () => {
-    navigator.clipboard.writeText($("log").textContent).then(() => snackbar(t("Logs copied")), () => snackbar(t("Could not copy")));
-  });
+  $("log-copy").addEventListener("click", () => send({ cmd: "copyLogs", value: $("log").textContent }));
   $("log-clear").addEventListener("click", () => { $("log").textContent = ""; });
   $("log").addEventListener("click", (e) => {
     const a = e.target.closest("a[data-link]");
@@ -1085,6 +1084,13 @@ const demo = {
     switch (cmd.cmd) {
       case "ready":
         emit({ ...stateEv(), log: "Game: H:\\Games\\Armored Warfare (build 442)\nBuild 442 is up to date.\n" });
+        break;
+      case "copyLogs":
+        if (navigator.clipboard?.writeText) {
+          navigator.clipboard.writeText(cmd.value).then(() => emit({ type: "clipboard", ok: true }), () => emit({ type: "clipboard", ok: false }));
+        } else {
+          emit({ type: "clipboard", ok: false });
+        }
         break;
       case "play": {
         begin({ id: 1, title: "Starting Tanker", game: true, account: "1" });
