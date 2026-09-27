@@ -35,7 +35,7 @@ jobs:
       - name: Build
         run: |
           mkdir dist
-          version=$(git describe --tags --match 'v*' --always)
+          if [[ $GITHUB_REF == refs/tags/v* ]]; then version=$GITHUB_REF_NAME; else version=$(git describe --tags --match 'v*' --always); fi
           echo "Version: $version"
           echo "AW_VERSION=$version" >> "$GITHUB_ENV"
           stamp="-X github.com/TheGreatPepix/awlauncher/internal/launcher.Version=$version"
@@ -90,7 +90,7 @@ jobs:
       - name: Build
         run: |
           mkdir dist
-          version=$(git describe --tags --match 'v*' --always)
+          if [[ $GITHUB_REF == refs/tags/v* ]]; then version=$GITHUB_REF_NAME; else version=$(git describe --tags --match 'v*' --always); fi
           echo "Version: $version"
           CGO_ENABLED=0 go build -trimpath -ldflags "-s -w -X github.com/TheGreatPepix/awlauncher/internal/launcher.Version=$version" -o dist/awlauncher-linux-amd64 ./cmd/awlauncher-console
           ls -l dist
