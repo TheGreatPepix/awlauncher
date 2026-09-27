@@ -47,7 +47,7 @@ func TestCheckForUpdate(t *testing.T) {
 		}
 		w.Write([]byte(`{"tag_name":"v0.2.0","html_url":"https://github.com/TheGreatPepix/awlauncher/releases/tag/v0.2.0",
 			"body":"Notes\r\n","published_at":"2026-09-27T10:00:00Z",
-			"assets":[{"name":"AWLauncher.exe","browser_download_url":"https://example.com/AWLauncher.exe","size":10}]}`))
+			"assets":[{"name":"` + selfAssetName + `","browser_download_url":"https://example.com/` + selfAssetName + `","size":10}]}`))
 	}))
 	defer srv.Close()
 	oldURL, oldVersion := latestReleaseURL, Version
