@@ -74,7 +74,7 @@ func (g *guiApp) signInCommand(cmd string) {
 }
 
 func (g *guiApp) openSignInWindow(s *signInState) error {
-	dark, surface, text := themeColors()
+	dark, surface, text := themeColors(loadPrefs().Theme)
 	win, err := createHostWindow(signInClassName, "Sign in to VK Play — AWLauncher", g.win.hwnd, 560, 780, 420, 520, colorRef(surface), g.signInProc(s))
 	if err != nil {
 		return err

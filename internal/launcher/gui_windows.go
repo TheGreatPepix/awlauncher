@@ -41,7 +41,6 @@ type guiApp struct {
 	web       *edge.Chromium
 	signIn    *signInState
 	pageReady bool
-	shown     bool
 	exiting   bool
 	active    bool
 	leftAt    time.Time
@@ -141,7 +140,7 @@ func RunGUI() int {
 }
 
 func (g *guiApp) createWindow() error {
-	dark, surface, text := themeColors()
+	dark, surface, text := themeColors(loadPrefs().Theme)
 	win, err := createHostWindow(hostClassName, windowTitle, 0, 1060, 720, 780, 560, colorRef(surface), g.wndProc)
 	if err != nil {
 		return fmt.Errorf("cannot create the window: %w", err)
@@ -149,6 +148,9 @@ func (g *guiApp) createWindow() error {
 	g.win = win
 	g.setWindowIcon()
 	win.setTitleBar(dark, colorRef(surface), colorRef(text))
+	if !g.inTray {
+		g.showWindow()
+	}
 
 	web := edge.NewChromium()
 	web.MessageCallback = g.onMessage
@@ -177,7 +179,6 @@ func (g *guiApp) createWindow() error {
 	}
 	web.Resize()
 	web.NavigateToString(page)
-	time.AfterFunc(5*time.Second, func() { g.post(func() { g.reveal() }) })
 	return nil
 }
 
@@ -192,8 +193,8 @@ func setAppIcon(w *hostWindow) {
 	}
 }
 
-func themeColors() (dark bool, surface, text [3]uint8) {
-	if systemDarkTheme() {
+func themeColors(theme string) (dark bool, surface, text [3]uint8) {
+	if theme == "dark" || (theme != "light" && systemDarkTheme()) {
 		return true, [3]uint8{0x14, 0x12, 0x18}, [3]uint8{0xE6, 0xE0, 0xE9}
 	}
 	return false, [3]uint8{0xFD, 0xF7, 0xFF}, [3]uint8{0x1D, 0x1B, 0x20}
@@ -254,14 +255,7 @@ func (g *guiApp) drain() {
 	}
 }
 
-func (g *guiApp) reveal() {
-	if !g.shown && !g.inTray {
-		g.showWindow()
-	}
-}
-
 func (g *guiApp) showWindow() {
-	g.shown = true
 	g.win.show()
 	if g.web != nil {
 		_ = g.web.Show()
@@ -397,7 +391,6 @@ func (g *guiApp) onMessage(message string) {
 	case "ready":
 		g.pageReady = true
 		g.emitState(true)
-		g.post(g.reveal)
 		if g.updated {
 			g.updated = false
 			fmt.Println("AWLauncher is updated to", Version+".")
