@@ -319,9 +319,14 @@ func uiPage() (string, error) {
 	}
 	style := strings.Replace(string(css), `url("fonts/Rubik-Variable.ttf")`, `url("data:font/ttf;base64,`+base64.StdEncoding.EncodeToString(font)+`")`, 1)
 	page := strings.Replace(string(html), `<link rel="stylesheet" href="app.css">`, "<style>\n"+style+"</style>", 1)
+	logo, err := appicon.Image(256)
+	if err != nil {
+		return "", err
+	}
+	page = strings.Replace(page, `src="../../appicon/awlauncher.ico"`, `src="data:image/png;base64,`+base64.StdEncoding.EncodeToString(logo)+`"`, 1)
 	page = strings.Replace(page, `<script src="i18n.js"></script>`, "<script>\n"+string(i18nJS)+"</script>", 1)
 	page = strings.Replace(page, `<script src="app.js"></script>`, "<script>\n"+string(js)+"</script>", 1)
-	if strings.Contains(page, `href="app.css"`) || strings.Contains(page, `src="app.js"`) || strings.Contains(page, `src="i18n.js"`) || strings.Contains(page, `url("fonts/`) {
+	if strings.Contains(page, `href="app.css"`) || strings.Contains(page, `src="app.js"`) || strings.Contains(page, `src="i18n.js"`) || strings.Contains(page, `awlauncher.ico"`) || strings.Contains(page, `url("fonts/`) {
 		return "", errors.New("the embedded page references files that were not inlined")
 	}
 	return page, nil
