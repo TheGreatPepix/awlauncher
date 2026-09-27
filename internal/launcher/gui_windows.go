@@ -507,6 +507,16 @@ func (g *guiApp) onMessage(message string) {
 		g.session.found.game = nil
 		g.emitState(false)
 		g.emit(describeConfiguredGame(g.store.get()))
+	case "allowMods":
+		if g.gameBusy() {
+			g.notice("Wait until the game operation finishes")
+			return
+		}
+		if err := g.store.update(func(cfg *launcherConfig) { cfg.AllowMods = c.Value == "on" }); err != nil {
+			g.notice(err.Error())
+			return
+		}
+		g.emitState(false)
 	case "branchFolder":
 		go g.changeBranchFolder(c.Branch)
 	case "openGameFolder":
@@ -577,6 +587,7 @@ type uiState struct {
 	SuggestedGame string      `json:"suggestedGame"`
 	FXGame        string      `json:"fxGame"`
 	SeparateMain  bool        `json:"separateMain"`
+	AllowMods     bool        `json:"allowMods"`
 	Data          string      `json:"data"`
 	Version       string      `json:"version"`
 	Autostart     string      `json:"autostart"`
@@ -608,7 +619,7 @@ func (g *guiApp) emitState(withLog bool) {
 	g.opsMu.Lock()
 	ops := append([]operation{}, g.ops...)
 	g.opsMu.Unlock()
-	s := uiState{Type: "state", Accounts: accountViews(cfg), Game: cfg.Game, FXGame: cfg.FXGame, SeparateMain: cfg.SeparateMain, SuggestedGame: suggestGameFolder(cfg.Game), Ops: ops, Running: g.gameUp.Load(), Version: Version, Autostart: autostartMode(), SystemLang: uiLanguage()}
+	s := uiState{Type: "state", Accounts: accountViews(cfg), Game: cfg.Game, FXGame: cfg.FXGame, SeparateMain: cfg.SeparateMain, AllowMods: cfg.AllowMods, SuggestedGame: suggestGameFolder(cfg.Game), Ops: ops, Running: g.gameUp.Load(), Version: Version, Autostart: autostartMode(), SystemLang: uiLanguage()}
 	if dir, err := launcherDir(); err == nil {
 		s.Data = dir
 	}

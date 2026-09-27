@@ -11,6 +11,7 @@ const state = {
   game: "",
   fxGame: "",
   separateMain: false,
+  allowMods: false,
   suggestedGame: "",
   data: "",
   ops: [],
@@ -222,6 +223,7 @@ function onState(ev) {
   state.game = ev.game;
   state.fxGame = ev.fxGame || "";
   state.separateMain = !!ev.separateMain;
+  state.allowMods = !!ev.allowMods;
   state.suggestedGame = ev.suggestedGame || "";
   state.data = ev.data;
   state.ops = ev.ops || [];
@@ -236,6 +238,7 @@ function onState(ev) {
 }
 
 function renderFolders() {
+  for (const b of $("mods-mode").children) b.classList.toggle("on", b.dataset.mode === (state.allowMods ? "on" : "off"));
   $("game-folder-title").textContent = t(state.separateMain ? "VK Play folder" : "Main game folder");
   for (const b of $("main-client-mode").children) b.classList.toggle("on", b.dataset.mode === (state.separateMain ? "separate" : "shared"));
   $("fx-folder-row").hidden = !state.separateMain;
@@ -1029,6 +1032,7 @@ function setup() {
   $("game-change").addEventListener("click", () => send({ cmd: "gameFolder" }));
   $("fx-change").addEventListener("click", () => send({ cmd: "fxFolder" }));
   for (const b of $("main-client-mode").children) b.addEventListener("click", () => send({ cmd: "mainMode", value: b.dataset.mode }));
+  for (const b of $("mods-mode").children) b.addEventListener("click", () => send({ cmd: "allowMods", value: b.dataset.mode }));
   $("game-open").addEventListener("click", () => send({ cmd: "openGameFolder" }));
   $("game-clear").addEventListener("click", () => send({ cmd: "clearDownloads" }));
   $("game-uninstall").addEventListener("click", () => send({ cmd: "uninstall" }));
@@ -1074,7 +1078,7 @@ const demo = {
     ]);
     const emit = (ev) => setTimeout(() => aw.recv(ev), 30);
     const ops = demo.ops || (demo.ops = []);
-    const stateEv = () => ({ type: "state", accounts, game: "H:\\Games\\Armored Warfare", data: "C:\\Users\\player\\AppData\\Local\\AWLauncher", version: "v0.1.1", autostart: demo.autostart || "off", systemLang: /^ru/i.test(navigator.language) ? "ru" : "en", ops: [...ops] });
+    const stateEv = () => ({ type: "state", accounts, game: "H:\\Games\\Armored Warfare", data: "C:\\Users\\player\\AppData\\Local\\AWLauncher", version: "v0.1.1", autostart: demo.autostart || "off", allowMods: !!demo.allowMods, systemLang: /^ru/i.test(navigator.language) ? "ru" : "en", ops: [...ops] });
     const begin = (op) => { ops.push(op); emit(stateEv()); };
     const end = (id) => { const i = ops.findIndex((o) => o.id === id); if (i >= 0) ops.splice(i, 1); emit(stateEv()); };
     switch (cmd.cmd) {
@@ -1190,6 +1194,10 @@ const demo = {
         break;
       case "autostart":
         demo.autostart = cmd.value;
+        emit(stateEv());
+        break;
+      case "allowMods":
+        demo.allowMods = cmd.value === "on";
         emit(stateEv());
         break;
       case "pin": {

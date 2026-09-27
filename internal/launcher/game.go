@@ -185,7 +185,7 @@ func (s *session) downloadClient(acc account, kind, branch string) error {
 		}
 		clientRoot = cfg.branchDir(branch)
 	}
-	_, err = syncFXClient(s.client, &s.p, acc, branch, clientRoot, mainRoot, true)
+	_, err = syncFXClient(s.client, &s.p, acc, branch, clientRoot, mainRoot, true, s.cfg.get().AllowMods)
 	return err
 }
 
@@ -413,12 +413,12 @@ func (s *session) verifyClient(c gameClient) error {
 	if cfg := s.cfg.get(); cfg.SeparateMain {
 		root = cfg.FXGame
 	}
-	state, err := syncFXClient(s.client, &s.p, acc, c.Branch, c.Dir, root, false)
+	state, err := syncFXClient(s.client, &s.p, acc, c.Branch, c.Dir, root, false, false)
 	if errors.Is(err, errNeedLogin) {
 		if acc, err = s.relogin(acc); err != nil {
 			return err
 		}
-		state, err = syncFXClient(s.client, &s.p, acc, c.Branch, c.Dir, root, false)
+		state, err = syncFXClient(s.client, &s.p, acc, c.Branch, c.Dir, root, false, false)
 	}
 	if err != nil {
 		return err
@@ -455,7 +455,7 @@ func (s *session) verifyVK(root string) error {
 	if err := fileutil.WriteAtomic(vkVerificationMarker(root), []byte("1")); err != nil {
 		return err
 	}
-	if err := verifyClientBeforeLaunch(s.p, g); err != nil {
+	if err := verifyClientBeforeLaunch(s.p, g, false); err != nil {
 		return err
 	}
 	s.p.sayf("VK Play build %d: every file matches the official list.\n", g.Build)

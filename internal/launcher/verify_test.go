@@ -34,3 +34,19 @@ func TestCheckClientFilesDetectsDeletedAndTruncatedFiles(t *testing.T) {
 		t.Fatalf("truncated file: bad=%d err=%v", bad, err)
 	}
 }
+
+func TestAllowModsPreservesChangedFileButFindsMissingFile(t *testing.T) {
+	root := t.TempDir()
+	if err := os.WriteFile(filepath.Join(root, "hangar.pak"), []byte("modded hangar"), 0644); err != nil {
+		t.Fatal(err)
+	}
+	inv := clientInventory{Files: []inventoryFile{{Name: "hangar.pak", Size: 4}, {Name: "missing.pak", Size: 4}}}
+	bad, err := damagedClientFiles(root, inv, true)
+	if err != nil || len(bad) != 1 || bad[0].Name != "missing.pak" {
+		t.Fatalf("with mods: bad=%v, err=%v", bad, err)
+	}
+	bad, err = damagedClientFiles(root, inv, false)
+	if err != nil || len(bad) != 2 {
+		t.Fatalf("strict check: bad=%v, err=%v", bad, err)
+	}
+}

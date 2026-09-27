@@ -162,3 +162,32 @@ func TestSyncBranchLinksSharedFiles(t *testing.T) {
 		t.Fatal("file removed from the branch was kept")
 	}
 }
+
+func TestSyncBranchPreservesModsUntilOfficialFileChanges(t *testing.T) {
+	root := t.TempDir()
+	b := newBranchServer(t)
+	b.files = map[string][]byte{"hangar.pak": []byte("original"), "missing.pak": []byte("present")}
+	if _, err := syncBranch(b.srv.Client(), "SuperTest", b.branchManifest(), "", root); err != nil {
+		t.Fatal(err)
+	}
+	writeTree(t, root, map[string][]byte{"hangar.pak": []byte("modified hangar")})
+	if err := os.Remove(filepath.Join(root, "missing.pak")); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := syncBranch(b.srv.Client(), "SuperTest", b.branchManifest(), "", root, true); err != nil {
+		t.Fatal(err)
+	}
+	if got := readFile(t, filepath.Join(root, "hangar.pak")); got != "modified hangar" {
+		t.Fatalf("mod was replaced: %q", got)
+	}
+	if got := readFile(t, filepath.Join(root, "missing.pak")); got != "present" {
+		t.Fatalf("missing file was not repaired: %q", got)
+	}
+	b.files["hangar.pak"] = []byte("new official hangar")
+	if _, err := syncBranch(b.srv.Client(), "SuperTest", b.branchManifest(), "", root, true); err != nil {
+		t.Fatal(err)
+	}
+	if got := readFile(t, filepath.Join(root, "hangar.pak")); got != "new official hangar" {
+		t.Fatalf("official update was skipped: %q", got)
+	}
+}

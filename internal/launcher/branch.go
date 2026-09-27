@@ -138,13 +138,14 @@ func parallel[T any](items []T, jobs int, fn func(T) error) error {
 	return first
 }
 
-func syncBranch(client *http.Client, branch string, m fxBranchManifest, mainRoot, root string) (branchState, error) {
+func syncBranch(client *http.Client, branch string, m fxBranchManifest, mainRoot, root string, allowMods ...bool) (branchState, error) {
+	mods := len(allowMods) > 0 && allowMods[0]
 	lc := m.Manifest.LauncherConfiguration
 	if lc.HTTPDownload.DownloadBaseURI == "" || lc.ManifestURL == "" {
 		return branchState{}, errors.New("the branch manifest has no download address")
 	}
 	prev, _ := readBranchState(root)
-	if !prev.Dirty && prev.ManifestSHA256 != "" && strings.EqualFold(prev.ManifestSHA256, lc.ManifestSHA256) && branchFilesPresent(root, branch, prev.Files) {
+	if !prev.Dirty && prev.ManifestSHA256 != "" && strings.EqualFold(prev.ManifestSHA256, lc.ManifestSHA256) && branchFilesPresent(root, branch, prev.Files, mods) {
 		return prev, nil
 	}
 	fmt.Printf("Preparing %s %s (build %d) in %s...\n", branch, m.Manifest.Release.BuildVersion, m.Manifest.Release.BuildNumber, root)
@@ -170,12 +171,21 @@ func syncBranch(client *http.Client, branch string, m fxBranchManifest, mainRoot
 			verified[strings.ToLower(f.Path)] = strings.ToLower(f.SHA256)
 		}
 	}
+	previous := map[string]string{}
+	for _, f := range prev.Files {
+		previous[strings.ToLower(f.Path)] = strings.ToLower(f.SHA256)
+	}
 	var check, download []fxFile
 	var checkSize, downloadSize, linked int64
 	for _, f := range manifest.Files {
 		dst, err := fxFilePath(root, branch, f.Path)
 		if err != nil {
 			return branchState{}, err
+		}
+		if mods && previous[strings.ToLower(f.Path)] == strings.ToLower(f.SHA256) {
+			if st, statErr := os.Stat(dst); statErr == nil && st.Mode().IsRegular() {
+				continue
+			}
 		}
 		if st, err := os.Stat(dst); err == nil && st.Size() == f.Size {
 			if verified[strings.ToLower(f.Path)] == strings.ToLower(f.SHA256) {
@@ -327,16 +337,16 @@ func fxFilePath(root, branch, name string) (string, error) {
 	return safeGamePath(root, name)
 }
 
-func branchFilesPresent(root, branch string, files []fxFile) bool {
+func branchFilesPresent(root, branch string, files []fxFile, allowMods bool) bool {
 	for _, f := range files {
 		dst, err := fxFilePath(root, branch, f.Path)
 		if err != nil {
 			return false
 		}
-		if st, err := os.Stat(dst); err != nil || st.Size() != f.Size {
+		if st, err := os.Stat(dst); err != nil || !st.Mode().IsRegular() || (!allowMods && st.Size() != f.Size) {
 			return false
 		}
-		if normalizedClientName(f.Path) == "user.cfg" {
+		if !allowMods && normalizedClientName(f.Path) == "user.cfg" {
 			sum, err := fileSHA256(dst)
 			if err != nil || !strings.EqualFold(sum, f.SHA256) {
 				return false
@@ -350,11 +360,11 @@ func playFXBranch(client *http.Client, p *prompter, acc account, mainRoot string
 	if mainRoot == "" {
 		return errors.New("install a main client first: the branch is placed next to it")
 	}
-	return playFXInstall(client, p, acc, acc.Branch, branchInstallDir(mainRoot, acc.Branch), mainRoot, false)
+	return playFXInstall(client, p, acc, acc.Branch, branchInstallDir(mainRoot, acc.Branch), mainRoot, false, false)
 }
 
-func playFXInstall(client *http.Client, p *prompter, acc account, branch, root, mainRoot string, ask bool) error {
-	state, err := syncFXClient(client, p, acc, branch, root, mainRoot, ask)
+func playFXInstall(client *http.Client, p *prompter, acc account, branch, root, mainRoot string, ask, allowMods bool) error {
+	state, err := syncFXClient(client, p, acc, branch, root, mainRoot, ask, allowMods)
 	if err != nil {
 		return err
 	}
@@ -383,7 +393,7 @@ func playFXInstall(client *http.Client, p *prompter, acc account, branch, root, 
 	return nil
 }
 
-func syncFXClient(client *http.Client, p *prompter, acc account, branch, root, mainRoot string, ask bool) (branchState, error) {
+func syncFXClient(client *http.Client, p *prompter, acc account, branch, root, mainRoot string, ask, allowMods bool) (branchState, error) {
 	if branch != fxDefaultBranch && isGameDir(root) {
 		return branchState{}, errors.New("FX ID client folder contains a VK Play installation")
 	}
@@ -417,7 +427,7 @@ func syncFXClient(client *http.Client, p *prompter, acc account, branch, root, m
 	if strings.EqualFold(filepath.Clean(mainRoot), filepath.Clean(root)) {
 		mainRoot = ""
 	}
-	state, err := syncBranch(client, branch, m, mainRoot, root)
+	state, err := syncBranch(client, branch, m, mainRoot, root, allowMods)
 	if err != nil {
 		return branchState{}, err
 	}

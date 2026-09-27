@@ -145,6 +145,20 @@
       <div class="section-label">Game clients</div>
       <div class="card list" id="game-clients"></div>
 
+      <div class="section-label">Game files</div>
+      <div class="card list">
+        <div class="list-item">
+          <svg class="icon lead"><use href="#i-verify"/></svg>
+          <div class="list-text">
+            <div class="list-title">Allow mods</div>
+            <div class="list-sub">Keep existing modified files when starting the game. Missing files are still downloaded; Check files restores originals. Game updates may replace mods.</div>
+          </div>
+          <div class="segmented" id="mods-mode" role="group" aria-label="Allow mods">
+            <button data-mode="off">Off</button><button data-mode="on">On</button>
+          </div>
+        </div>
+      </div>
+
       <div class="section-label">Uninstall</div>
       <div class="card list">
         <div class="list-item">

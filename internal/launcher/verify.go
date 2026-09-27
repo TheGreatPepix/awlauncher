@@ -114,7 +114,7 @@ func saveClientInventory(root string, inv clientInventory) error {
 	return fileutil.WriteAtomic(path, data)
 }
 
-func damagedClientFiles(root string, inv clientInventory) ([]inventoryFile, error) {
+func damagedClientFiles(root string, inv clientInventory, allowMods bool) ([]inventoryFile, error) {
 	if len(inv.Files) == 0 {
 		return nil, errors.New("empty client file list")
 	}
@@ -125,7 +125,7 @@ func damagedClientFiles(root string, inv clientInventory) ([]inventoryFile, erro
 			return nil, fmt.Errorf("invalid client file entry %q", f.Name)
 		}
 		st, err := os.Stat(path)
-		wrongSize := !strings.EqualFold(filepath.Clean(f.Name), "user.cfg") && err == nil && st.Size() != f.Size
+		wrongSize := !allowMods && !strings.EqualFold(filepath.Clean(f.Name), "user.cfg") && err == nil && st.Size() != f.Size
 		if err != nil || !st.Mode().IsRegular() || wrongSize {
 			bad = append(bad, f)
 		}
@@ -134,7 +134,7 @@ func damagedClientFiles(root string, inv clientInventory) ([]inventoryFile, erro
 }
 
 func checkClientFiles(root string, inv clientInventory) (int, string, error) {
-	bad, err := damagedClientFiles(root, inv)
+	bad, err := damagedClientFiles(root, inv, false)
 	if err != nil {
 		return 0, "", err
 	}
@@ -144,9 +144,9 @@ func checkClientFiles(root string, inv clientInventory) (int, string, error) {
 	return len(bad), bad[0].Name, nil
 }
 
-func verifyClientBeforeLaunch(p prompter, g gameInstall) error {
+func verifyClientBeforeLaunch(p prompter, g gameInstall, allowMods bool) error {
 	if vkNeedsFullVerification(g.Root) {
-		if err := verifyVKAfterFXChanges(p, g); err != nil {
+		if err := verifyVKAfterFXChanges(p, g, allowMods); err != nil {
 			return err
 		}
 	}
@@ -154,7 +154,7 @@ func verifyClientBeforeLaunch(p prompter, g gameInstall) error {
 	if err != nil {
 		return fmt.Errorf("cannot check client files: %w", err)
 	}
-	bad, err := damagedClientFiles(g.Root, inv)
+	bad, err := damagedClientFiles(g.Root, inv, allowMods)
 	if err != nil {
 		return err
 	}
@@ -170,18 +170,22 @@ func verifyClientBeforeLaunch(p prompter, g gameInstall) error {
 		if err := repairClientFiles(g, bad); err != nil {
 			return fmt.Errorf("client repair failed: %w", err)
 		}
-		if remaining, err := damagedClientFiles(g.Root, inv); err != nil || len(remaining) > 0 {
+		if remaining, err := damagedClientFiles(g.Root, inv, allowMods); err != nil || len(remaining) > 0 {
 			if err != nil {
 				return err
 			}
 			return fmt.Errorf("%d client files are still missing or wrong-size", len(remaining))
 		}
 	}
-	p.sayf("Client files checked: %d files present with expected sizes.\n", len(inv.Files))
+	if allowMods {
+		p.sayf("Client files checked: %d files present; modified files kept (mods enabled).\n", len(inv.Files))
+	} else {
+		p.sayf("Client files checked: %d files present with expected sizes.\n", len(inv.Files))
+	}
 	return nil
 }
 
-func verifyVKAfterFXChanges(p prompter, g gameInstall) error {
+func verifyVKAfterFXChanges(p prompter, g gameInstall, allowMods bool) error {
 	client := &http.Client{Timeout: 90 * time.Second}
 	distrib, err := latestDistrib(client)
 	if err != nil {
@@ -206,7 +210,7 @@ func verifyVKAfterFXChanges(p prompter, g gameInstall) error {
 		return err
 	}
 	state, full := readVKVerification(g.Root, g.Build)
-	bad, err := mismatchedVKFilesSelected(g.Root, manifest, state.Files, full)
+	bad, err := mismatchedVKFilesSelectedWithMods(g.Root, manifest, state.Files, full, allowMods)
 	if err != nil {
 		return err
 	}
@@ -243,6 +247,10 @@ func mismatchedVKFiles(root string, manifest patchManifest) ([]inventoryFile, er
 }
 
 func mismatchedVKFilesSelected(root string, manifest patchManifest, names []string, full bool) ([]inventoryFile, error) {
+	return mismatchedVKFilesSelectedWithMods(root, manifest, names, full, false)
+}
+
+func mismatchedVKFilesSelectedWithMods(root string, manifest patchManifest, names []string, full, allowMods bool) ([]inventoryFile, error) {
 	if len(manifest.NonCompressed.Files) == 0 {
 		return nil, errors.New("empty VK Play client manifest")
 	}
@@ -265,7 +273,9 @@ func mismatchedVKFilesSelected(root string, manifest patchManifest, names []stri
 			full = true
 		}
 	}
-	if full {
+	if allowMods {
+		fmt.Printf("Checking VK Play files; keeping existing modified files (mods enabled)...\n")
+	} else if full {
 		fmt.Printf("Checking all VK Play files by MD5 after FX ID changed the shared client...\n")
 	} else {
 		fmt.Printf("Checking %d VK Play files changed by FX ID...\n", len(files))
@@ -277,6 +287,12 @@ func mismatchedVKFilesSelected(root string, manifest patchManifest, names []stri
 		path, err := safeGamePath(root, f.Name)
 		if err != nil {
 			return nil, err
+		}
+		if allowMods {
+			if st, statErr := os.Stat(path); statErr == nil && st.Mode().IsRegular() {
+				progress.Default.Add(1)
+				continue
+			}
 		}
 		ok, err := validStagedFile(path, f)
 		if err != nil {

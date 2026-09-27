@@ -60,6 +60,7 @@ type launcherConfig struct {
 	Game         string            `json:"game"`
 	FXGame       string            `json:"fx_game,omitempty"`
 	SeparateMain bool              `json:"separate_main,omitempty"`
+	AllowMods    bool              `json:"allow_mods,omitempty"`
 	BranchGames  map[string]string `json:"branch_games,omitempty"`
 	Accounts     []account         `json:"accounts"`
 	LastUserID   int64             `json:"last_user_id"`

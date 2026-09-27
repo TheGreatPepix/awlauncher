@@ -125,6 +125,20 @@ func TestMismatchedVKFilesChecksMD5(t *testing.T) {
 	}
 }
 
+func TestVKModModeSkipsExistingFilesButNotMissing(t *testing.T) {
+	root := t.TempDir()
+	writeTree(t, root, map[string][]byte{"hangar.pak": []byte("modded")})
+	manifest := patchManifest{}
+	manifest.NonCompressed.Files = []manifestFile{
+		{Name: "hangar.pak", Size: 4, MD5: "00000000000000000000000000000000"},
+		{Name: "missing.pak", Size: 4, MD5: "00000000000000000000000000000000"},
+	}
+	bad, err := mismatchedVKFilesSelectedWithMods(root, manifest, nil, true, true)
+	if err != nil || len(bad) != 1 || bad[0].Name != "missing.pak" {
+		t.Fatalf("with mods: bad=%v, err=%v", bad, err)
+	}
+}
+
 func TestVKVerificationOnlyChecksChangedFiles(t *testing.T) {
 	root := t.TempDir()
 	writeTree(t, root, map[string][]byte{"changed.dat": []byte("evil"), "untouched.dat": []byte("evil")})

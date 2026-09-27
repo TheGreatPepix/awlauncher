@@ -565,13 +565,13 @@ func (s *session) play(acc account) error {
 				return err
 			}
 		}
-		return playFXInstall(s.client, &s.p, acc, acc.Branch, s.cfg.get().branchDir(acc.Branch), root, false)
+		return playFXInstall(s.client, &s.p, acc, acc.Branch, s.cfg.get().branchDir(acc.Branch), root, false, s.cfg.get().AllowMods)
 	case acc.isFX():
 		root, err := s.fxRoot()
 		if err != nil {
 			return err
 		}
-		return playFXInstall(s.client, &s.p, acc, fxDefaultBranch, root, "", true)
+		return playFXInstall(s.client, &s.p, acc, fxDefaultBranch, root, "", true, s.cfg.get().AllowMods)
 	}
 	g, err := s.vkGame()
 	if err != nil {
@@ -580,7 +580,7 @@ func (s *session) play(acc account) error {
 	if err := region.Ensure(g.Root, region.VK); err != nil {
 		return err
 	}
-	if err := verifyClientBeforeLaunch(s.p, g); err != nil {
+	if err := verifyClientBeforeLaunch(s.p, g, s.cfg.get().AllowMods); err != nil {
 		return err
 	}
 	return startGame(s.client, g, acc)
