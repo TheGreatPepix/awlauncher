@@ -114,13 +114,23 @@
       <div class="section-label">Folder</div>
       <div class="card list">
         <div class="list-item">
+          <svg class="icon lead"><use href="#i-globe"/></svg>
+          <div class="list-text"><div class="list-title">Main client folders</div><div class="list-sub">FX ID and VK Play can share one installation or use separate folders.</div></div>
+          <div class="segmented" id="main-client-mode" role="group" aria-label="Main client folders"><button data-mode="shared">Shared</button><button data-mode="separate">Separate</button></div>
+        </div>
+        <div class="list-item">
           <svg class="icon lead"><use href="#i-folder"/></svg>
           <div class="list-text">
-            <div class="list-title">Main game folder</div>
+            <div class="list-title" id="game-folder-title">Main game folder</div>
             <div class="list-sub mono" id="game-folder">Chosen on the first start</div>
           </div>
           <button class="btn text" id="game-open">Open</button>
           <button class="btn tonal" id="game-change">Choose…</button>
+        </div>
+        <div class="list-item" id="fx-folder-row" hidden>
+          <svg class="icon lead"><use href="#i-folder"/></svg>
+          <div class="list-text"><div class="list-title">FX ID folder</div><div class="list-sub mono" id="fx-folder">Choose a folder</div></div>
+          <button class="btn tonal" id="fx-change">Choose…</button>
         </div>
         <div class="list-item">
           <svg class="icon lead"><use href="#i-storage"/></svg>
@@ -208,7 +218,7 @@
           <svg class="icon lead"><use href="#i-info"/></svg>
           <div class="list-text">
             <div class="list-title">AWLauncher</div>
-            <div class="list-sub">Installs, updates and starts Armored Warfare on its own. Closing the window hides it in the notification area.</div>
+            <div class="list-sub">An independent Armored Warfare launcher with FX ID and VK Play sign-in, game installation, updates and launch.</div>
           </div>
         </div>
         <div class="list-item">

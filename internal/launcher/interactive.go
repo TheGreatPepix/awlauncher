@@ -131,7 +131,12 @@ func installInto(p prompter, cfg *configStore, dir string) (gameInstall, bool) {
 		return gameInstall{}, false
 	}
 	var previous, fxGame string
-	if err := cfg.update(func(c *launcherConfig) { previous, fxGame, c.Game = c.Game, c.FXGame, dir }); err != nil {
+	if err := cfg.update(func(c *launcherConfig) {
+		previous, c.Game = c.Game, dir
+		if c.SeparateMain {
+			fxGame = c.FXGame
+		}
+	}); err != nil {
 		p.say("Error:", err)
 	}
 	if err := installGame(p, dir, fxGame); err != nil {
@@ -506,16 +511,63 @@ func (s *session) sharedRoot() (string, error) {
 	}
 }
 
+func (s *session) fxRoot() (string, error) {
+	cfg := s.cfg.get()
+	if !cfg.SeparateMain {
+		return s.sharedRoot()
+	}
+	if cfg.FXGame != "" {
+		return cfg.FXGame, nil
+	}
+	defaultDir := defaultGameDir() + " FX ID"
+	for {
+		dir := strings.Trim(s.p.line(fmt.Sprintf("FX ID game folder [%s]: ", defaultDir)), `"' `)
+		if dir == "" {
+			if s.p.ask != nil {
+				return "", errQuit
+			}
+			dir = defaultDir
+		} else if strings.EqualFold(dir, "q") {
+			return "", errQuit
+		}
+		root, err := filepath.Abs(dir)
+		if err != nil {
+			s.p.say("Invalid folder:", err)
+			continue
+		}
+		if strings.EqualFold(root, cfg.Game) || isGameDir(root) {
+			s.p.say("Choose a folder different from the VK Play client.")
+			continue
+		}
+		if state, ok := readBranchState(root); ok && state.Branch != fxDefaultBranch {
+			s.p.say("That folder contains a closed FX ID branch.")
+			continue
+		}
+		if err := s.cfg.update(func(c *launcherConfig) { c.FXGame = root }); err != nil {
+			return "", err
+		}
+		return root, nil
+	}
+}
+
 func (s *session) play(acc account) error {
 	switch {
 	case acc.isFX() && acc.Branch != "":
-		root, err := s.sharedRoot()
-		if err != nil {
-			return err
+		cfg := s.cfg.get()
+		root := cfg.Game
+		if cfg.SeparateMain {
+			root = cfg.FXGame
 		}
-		return playFXBranch(s.client, &s.p, acc, root)
+		if root == "" && cfg.BranchGames[strings.ToLower(acc.Branch)] == "" {
+			var err error
+			root, err = s.fxRoot()
+			if err != nil {
+				return err
+			}
+		}
+		return playFXInstall(s.client, &s.p, acc, acc.Branch, s.cfg.get().branchDir(acc.Branch), root, false)
 	case acc.isFX():
-		root, err := s.sharedRoot()
+		root, err := s.fxRoot()
 		if err != nil {
 			return err
 		}

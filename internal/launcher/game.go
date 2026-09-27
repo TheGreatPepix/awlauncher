@@ -42,12 +42,13 @@ func (c gameClient) name() string {
 }
 
 type gameInfo struct {
-	Type      string       `json:"type"`
-	Dir       string       `json:"dir"`
-	Clients   []gameClient `json:"clients"`
-	Downloads int64        `json:"downloads"`
-	Free      int64        `json:"free"`
-	Region    string       `json:"region,omitempty"`
+	Type        string            `json:"type"`
+	Dir         string            `json:"dir"`
+	Clients     []gameClient      `json:"clients"`
+	Downloads   int64             `json:"downloads"`
+	Free        int64             `json:"free"`
+	Region      string            `json:"region,omitempty"`
+	BranchPaths map[string]string `json:"branchPaths,omitempty"`
 }
 
 type availableClient struct {
@@ -124,7 +125,11 @@ func (s *session) downloadClient(acc account, kind, branch string) error {
 		if err != nil {
 			return err
 		}
-		return installGame(s.p, root, s.cfg.get().FXGame)
+		fxRoot := ""
+		if cfg := s.cfg.get(); cfg.SeparateMain {
+			fxRoot = cfg.FXGame
+		}
+		return installGame(s.p, root, fxRoot)
 	}
 	if !acc.isFX() || !branchNamePattern.MatchString(branch) {
 		return errors.New("an FX ID account and valid branch are required")
@@ -146,13 +151,39 @@ func (s *session) downloadClient(acc account, kind, branch string) error {
 	if !available {
 		return fmt.Errorf("branch %s is not available to this account", branch)
 	}
-	root, err := s.sharedRoot()
-	if err != nil {
-		return err
+	cfg := s.cfg.get()
+	root := cfg.Game
+	if kind == clientFX {
+		var err error
+		root, err = s.fxRoot()
+		if err != nil {
+			return err
+		}
+	} else if kind == clientBranch && cfg.SeparateMain {
+		root = cfg.FXGame
+		if root == "" && cfg.BranchGames[strings.ToLower(branch)] == "" {
+			var err error
+			root, err = s.fxRoot()
+			if err != nil {
+				return err
+			}
+		}
+	} else if root == "" && cfg.BranchGames[strings.ToLower(branch)] == "" {
+		var err error
+		root, err = s.sharedRoot()
+		if err != nil {
+			return err
+		}
 	}
 	clientRoot, mainRoot := root, ""
 	if kind == clientBranch {
-		clientRoot, mainRoot = branchInstallDir(root, branch), root
+		cfg := s.cfg.get()
+		if cfg.SeparateMain {
+			mainRoot = cfg.FXGame
+		} else {
+			mainRoot = root
+		}
+		clientRoot = cfg.branchDir(branch)
 	}
 	_, err = syncFXClient(s.client, &s.p, acc, branch, clientRoot, mainRoot, true)
 	return err
@@ -177,8 +208,115 @@ func describeGame(root string) gameInfo {
 	return info
 }
 
+func describeConfiguredGame(cfg launcherConfig) gameInfo {
+	info := describeGame(cfg.Game)
+	info.BranchPaths = cfg.BranchGames
+	info.Clients = installedConfiguredClients(cfg)
+	if info.Clients == nil {
+		info.Clients = []gameClient{}
+	}
+	for _, root := range configuredRoots(cfg) {
+		if strings.EqualFold(root, cfg.Game) {
+			continue
+		}
+		for _, cache := range downloadDirs(root) {
+			info.Downloads += dirSize(cache)
+		}
+	}
+	return info
+}
+
+func configuredRoots(cfg launcherConfig) []string {
+	var roots []string
+	seen := map[string]bool{}
+	add := func(dir string) {
+		if dir == "" {
+			return
+		}
+		key := strings.ToLower(filepath.Clean(dir))
+		if !seen[key] {
+			seen[key] = true
+			roots = append(roots, dir)
+		}
+	}
+	add(cfg.Game)
+	if cfg.SeparateMain {
+		add(cfg.FXGame)
+	}
+	for _, client := range installedConfiguredClients(cfg) {
+		add(client.Dir)
+	}
+	for _, dir := range cfg.BranchGames {
+		add(dir)
+	}
+	return roots
+}
+
+func (c launcherConfig) branchDir(branch string) string {
+	if dir := c.BranchGames[strings.ToLower(branch)]; dir != "" {
+		return dir
+	}
+	root := c.Game
+	if c.SeparateMain {
+		root = c.FXGame
+	}
+	if root == "" {
+		root = defaultGameDir()
+		if c.SeparateMain {
+			root += " FX ID"
+		}
+	}
+	return branchInstallDir(root, branch)
+}
+
+func installedConfiguredClients(cfg launcherConfig) []gameClient {
+	clients := installedClients(cfg.Game)
+	if cfg.SeparateMain && cfg.FXGame != "" {
+		clients = append(clients, branchClients(cfg.FXGame)...)
+	}
+	filtered := clients[:0]
+	for _, client := range clients {
+		if cfg.SeparateMain && client.Kind == clientFX {
+			continue
+		}
+		if client.Kind != clientBranch || strings.EqualFold(client.Dir, cfg.branchDir(client.Branch)) {
+			filtered = append(filtered, client)
+		}
+	}
+	clients = filtered
+	if cfg.SeparateMain && cfg.FXGame != "" {
+		if state, ok := readBranchState(cfg.FXGame); ok && state.Branch == fxDefaultBranch {
+			clients = append(clients, gameClient{Kind: clientFX, Branch: fxDefaultBranch, Dir: cfg.FXGame, Version: state.Version})
+		}
+	}
+	for branch, dir := range cfg.BranchGames {
+		if dir == "" {
+			continue
+		}
+		state, ok := readBranchState(dir)
+		if !ok || state.Branch == fxDefaultBranch || !strings.EqualFold(state.Branch, branch) {
+			continue
+		}
+		found := false
+		for i := range clients {
+			if clients[i].Kind == clientBranch && strings.EqualFold(clients[i].Branch, branch) {
+				clients[i] = gameClient{Kind: clientBranch, Branch: state.Branch, Dir: dir, Version: state.Version}
+				found = true
+				break
+			}
+		}
+		if !found {
+			clients = append(clients, gameClient{Kind: clientBranch, Branch: state.Branch, Dir: dir, Version: state.Version})
+		}
+	}
+	return clients
+}
+
 func installedClients(root string) []gameClient {
 	var clients []gameClient
+	if root == "" {
+		return clients
+	}
 	if isGameDir(root) {
 		version := "installed"
 		if build, _, err := currentBuild(root); err == nil {
@@ -229,11 +367,8 @@ func (s *session) gameRoot() (string, error) {
 }
 
 func (s *session) findClient(kind, branch string) (gameClient, error) {
-	root, err := s.gameRoot()
-	if err != nil {
-		return gameClient{}, err
-	}
-	for _, c := range installedClients(root) {
+	root := s.cfg.get().Game
+	for _, c := range installedConfiguredClients(s.cfg.get()) {
 		if c.Kind == kind && (kind != clientBranch || strings.EqualFold(c.Branch, branch)) {
 			return c, nil
 		}
@@ -242,11 +377,8 @@ func (s *session) findClient(kind, branch string) (gameClient, error) {
 }
 
 func (s *session) chooseClient(question string) (gameClient, error) {
-	root, err := s.gameRoot()
-	if err != nil {
-		return gameClient{}, err
-	}
-	clients := installedClients(root)
+	root := s.cfg.get().Game
+	clients := installedConfiguredClients(s.cfg.get())
 	switch len(clients) {
 	case 0:
 		return gameClient{}, fmt.Errorf("the game is not installed in %s", root)
@@ -277,7 +409,10 @@ func (s *session) verifyClient(c gameClient) error {
 	if err := markBranchDirty(c.Dir); err != nil {
 		return err
 	}
-	root, _ := s.gameRoot()
+	root := s.cfg.get().Game
+	if cfg := s.cfg.get(); cfg.SeparateMain {
+		root = cfg.FXGame
+	}
 	state, err := syncFXClient(s.client, &s.p, acc, c.Branch, c.Dir, root, false)
 	if errors.Is(err, errNeedLogin) {
 		if acc, err = s.relogin(acc); err != nil {
@@ -366,16 +501,14 @@ func markBranchDirty(root string) error {
 }
 
 func (s *session) clearDownloads() error {
-	root, err := s.gameRoot()
-	if err != nil {
-		return err
-	}
 	var size int64
 	var dirs []string
-	for _, dir := range downloadDirs(root) {
-		if n := dirSize(dir); n > 0 {
-			size += n
-			dirs = append(dirs, dir)
+	for _, root := range configuredRoots(s.cfg.get()) {
+		for _, dir := range downloadDirs(root) {
+			if n := dirSize(dir); n > 0 {
+				size += n
+				dirs = append(dirs, dir)
+			}
 		}
 	}
 	if size == 0 {
@@ -412,43 +545,39 @@ func (s *session) removeBranch(c gameClient) error {
 }
 
 func (s *session) uninstallGame() error {
-	root, err := s.gameRoot()
-	if err != nil {
-		return err
-	}
 	if err := ensureGameClosed(); err != nil {
 		return err
 	}
-	clients := installedClients(root)
+	clients := installedConfiguredClients(s.cfg.get())
 	if len(clients) == 0 {
-		return fmt.Errorf("the game is not installed in %s", root)
+		return errors.New("no game clients are installed")
 	}
 	var total int64
+	var dirs []string
+	seen := map[string]bool{}
 	for _, c := range clients {
-		if c.Dir == root && c.Kind == clientFX && isGameDir(root) {
+		key := strings.ToLower(filepath.Clean(c.Dir))
+		if seen[key] {
 			continue
 		}
+		seen[key] = true
+		dirs = append(dirs, c.Dir)
 		total += dirSize(c.Dir)
 		s.p.sayf("  %s, %s: %s\n", c.name(), c.Version, c.Dir)
 	}
 	if !s.p.yes(fmt.Sprintf("Uninstall Armored Warfare and free about %s? Your accounts stay in the launcher.", progress.FormatBytes(total)), false) {
 		return errQuit
 	}
-	for _, c := range clients {
-		if c.Kind == clientBranch {
-			if err := s.removeClientDir(c.Dir); err != nil {
-				return err
-			}
+	for _, dir := range dirs {
+		if err := s.removeClientDir(dir); err != nil {
+			return err
 		}
-	}
-	if err := s.removeClientDir(root); err != nil {
-		return err
 	}
 	s.found.game = nil
 	if err := s.cfg.update(func(c *launcherConfig) {
-		if strings.EqualFold(c.Game, root) {
-			c.Game = ""
-		}
+		c.Game = ""
+		c.FXGame = ""
+		c.BranchGames = nil
 	}); err != nil {
 		return err
 	}
@@ -552,10 +681,11 @@ func (s *session) gameMenu() {
 	root := s.cfg.get().Game
 	if root == "" {
 		s.p.say("No game folder is set yet. It is chosen on the first start.")
-		return
 	}
-	info := describeGame(root)
-	s.p.sayf("Game folder: %s\n", root)
+	info := describeConfiguredGame(s.cfg.get())
+	if root != "" {
+		s.p.sayf("Game folder: %s\n", root)
+	}
 	if len(info.Clients) == 0 {
 		s.p.say("  The game is not installed there.")
 	}
@@ -571,12 +701,23 @@ func (s *session) gameMenu() {
 	s.p.sayf("Downloaded patches: %s. Free space: %s.\n", progress.FormatBytes(info.Downloads), progress.FormatBytes(info.Free))
 	s.p.say("")
 	s.p.say("  v        check and repair the game files")
+	s.p.say("  m        set the VK Play/main game folder")
+	if s.cfg.get().SeparateMain {
+		s.p.say("  f        set the FX ID main folder")
+	}
+	s.p.say("  p        set a closed branch folder")
+	s.p.say("  t        choose shared or separate main clients")
+	if s.cfg.get().SeparateMain {
+		s.p.sayf("FX ID folder: %s\n", s.cfg.get().FXGame)
+	}
 	s.p.say("  c        delete downloaded patches")
 	if branches > 0 {
 		s.p.say("  r        remove a closed branch")
 	}
 	s.p.say("  u        uninstall the game")
-	s.p.say("  o        open the game folder")
+	if root != "" {
+		s.p.say("  o        open the game folder")
+	}
 	s.p.say("  Enter    back")
 	var err error
 	switch firstWord(s.p.line("> ")) {
@@ -584,6 +725,19 @@ func (s *session) gameMenu() {
 		var c gameClient
 		if c, err = s.chooseClient("Client number: "); err == nil {
 			err = s.verifyClient(c)
+		}
+	case "m":
+		err = s.setMainFolder(false)
+	case "f":
+		if s.cfg.get().SeparateMain {
+			err = s.setMainFolder(true)
+		}
+	case "p", "з":
+		err = s.setBranchFolder()
+	case "t", "е":
+		answer := strings.ToLower(strings.TrimSpace(s.p.line("Main clients: shared or separate [s/d]: ")))
+		if answer == "s" || answer == "d" {
+			err = s.cfg.update(func(c *launcherConfig) { c.setSeparateMain(answer == "d") })
 		}
 	case "c", "с":
 		err = s.clearDownloads()
@@ -595,19 +749,122 @@ func (s *session) gameMenu() {
 	case "u", "г":
 		err = s.uninstallGame()
 	case "o", "щ":
-		openInShell(root)
+		if root != "" {
+			openInShell(root)
+		}
 	}
 	if err != nil && !errors.Is(err, errQuit) {
 		s.p.say("Error:", err)
 	}
 }
 
-func (s *session) chooseInstalledBranch() (gameClient, error) {
-	root, err := s.gameRoot()
-	if err != nil {
-		return gameClient{}, err
+func (s *session) setMainFolder(fx bool) error {
+	if err := ensureGameClosed(); err != nil {
+		return err
 	}
-	branches := branchClients(root)
+	cfg := s.cfg.get()
+	label, current := "VK Play", cfg.Game
+	if fx {
+		label, current = "FX ID", cfg.FXGame
+	}
+	if current == "" {
+		current = defaultGameDir()
+		if fx {
+			current += " FX ID"
+		}
+	}
+	dir := strings.Trim(s.p.line(fmt.Sprintf("%s game folder [%s]: ", label, current)), `"' `)
+	if dir == "" {
+		dir = current
+	}
+	var err error
+	dir, err = filepath.Abs(dir)
+	if err != nil {
+		return err
+	}
+	if fx {
+		if strings.EqualFold(dir, cfg.Game) || isGameDir(dir) {
+			return errors.New("choose a folder different from the VK Play client")
+		}
+		if state, ok := readBranchState(dir); ok && state.Branch != fxDefaultBranch {
+			return errors.New("that folder contains a closed FX ID branch")
+		}
+	} else {
+		if cfg.SeparateMain && strings.EqualFold(dir, cfg.FXGame) {
+			return errors.New("choose a folder different from the FX ID client")
+		}
+		if state, ok := readBranchState(dir); ok && state.Branch != fxDefaultBranch {
+			return errors.New("that folder contains a closed FX ID branch")
+		}
+	}
+	for _, branchDir := range cfg.BranchGames {
+		if strings.EqualFold(dir, branchDir) {
+			return errors.New("that folder is assigned to a closed branch")
+		}
+	}
+	if err := s.cfg.update(func(c *launcherConfig) {
+		if fx {
+			c.FXGame = dir
+		} else {
+			c.Game = dir
+		}
+	}); err != nil {
+		return err
+	}
+	s.found.game = nil
+	s.p.sayf("%s game folder: %s\n", label, dir)
+	return nil
+}
+
+func (s *session) setBranchFolder() error {
+	branch := strings.TrimSpace(s.p.line("FX ID branch name: "))
+	if !branchNamePattern.MatchString(branch) || strings.EqualFold(branch, fxDefaultBranch) {
+		return errors.New("enter a valid closed branch name")
+	}
+	current := s.cfg.get().branchDir(branch)
+	dir := strings.Trim(s.p.line(fmt.Sprintf("Folder [%s]: ", current)), `"' `)
+	if dir == "" {
+		dir = current
+	}
+	var err error
+	dir, err = filepath.Abs(dir)
+	if err != nil {
+		return err
+	}
+	cfg := s.cfg.get()
+	if strings.EqualFold(dir, cfg.Game) || isGameDir(dir) {
+		return errors.New("choose a folder different from the main game client")
+	}
+	if cfg.SeparateMain && strings.EqualFold(dir, cfg.FXGame) {
+		return errors.New("choose a folder different from the FX ID main client")
+	}
+	for other, saved := range cfg.BranchGames {
+		if !strings.EqualFold(other, branch) && strings.EqualFold(dir, saved) {
+			return errors.New("that folder is assigned to another branch")
+		}
+	}
+	if state, ok := readBranchState(dir); ok && !strings.EqualFold(state.Branch, branch) {
+		return errors.New("that folder contains a different FX ID branch")
+	}
+	if err := s.cfg.update(func(c *launcherConfig) {
+		if c.BranchGames == nil {
+			c.BranchGames = map[string]string{}
+		}
+		c.BranchGames[strings.ToLower(branch)] = dir
+	}); err != nil {
+		return err
+	}
+	s.p.sayf("FX ID %s folder: %s\n", branch, dir)
+	return nil
+}
+
+func (s *session) chooseInstalledBranch() (gameClient, error) {
+	var branches []gameClient
+	for _, c := range installedConfiguredClients(s.cfg.get()) {
+		if c.Kind == clientBranch {
+			branches = append(branches, c)
+		}
+	}
 	switch len(branches) {
 	case 0:
 		return gameClient{}, errors.New("no closed branches are installed")

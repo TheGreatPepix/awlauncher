@@ -9,6 +9,8 @@ const state = {
   selected: "",
   lastId: "",
   game: "",
+  fxGame: "",
+  separateMain: false,
   suggestedGame: "",
   data: "",
   ops: [],
@@ -218,6 +220,8 @@ function onState(ev) {
   state.lastId = last;
   if (!state.accounts.some((a) => a.id === state.selected)) state.selected = last || (state.accounts[0] || {}).id || "";
   state.game = ev.game;
+  state.fxGame = ev.fxGame || "";
+  state.separateMain = !!ev.separateMain;
   state.suggestedGame = ev.suggestedGame || "";
   state.data = ev.data;
   state.ops = ev.ops || [];
@@ -232,6 +236,11 @@ function onState(ev) {
 }
 
 function renderFolders() {
+  $("game-folder-title").textContent = t(state.separateMain ? "VK Play folder" : "Main game folder");
+  for (const b of $("main-client-mode").children) b.classList.toggle("on", b.dataset.mode === (state.separateMain ? "separate" : "shared"));
+  $("fx-folder-row").hidden = !state.separateMain;
+  $("fx-folder").textContent = state.fxGame || t("Choose a folder");
+  $("fx-change").textContent = t(state.fxGame ? "Change…" : "Choose…");
   $("game-folder").textContent = state.game || (state.suggestedGame ? t("Suggested: {path}", { path: state.suggestedGame }) : t("Chosen on the first start"));
   $("game-change").textContent = t(state.game ? "Change…" : "Choose…");
   $("data-folder").textContent = state.data || "%LOCALAPPDATA%\\AWLauncher";
@@ -340,6 +349,7 @@ function renderGame() {
     box.append(el("div", { class: "list-item" },
       icon(c.kind === "branch" ? "branch" : "globe", "lead"),
       el("div", { class: "list-text" }, el("div", { class: "list-title", text: name }), el("div", { class: "list-sub", text: sub })),
+      c.kind === "branch" ? el("button", { class: "btn text", disabled: busy, onclick: () => send({ cmd: "branchFolder", branch: c.branch }) }, t("Folder…")) : null,
       c.kind === "branch" ? el("button", { class: "btn text", disabled: busy, onclick: () => send({ cmd: "removeBranch", value: c.kind, branch: c.branch }) }, t("Remove")) : null,
       el("button", { class: "btn tonal", disabled: busy, title: t("Check every file and download the ones that differ"), onclick: () => send({ cmd: "verify", value: c.kind, branch: c.branch || "" }) }, icon("verify", "sm"), t("Check files"))));
   }
@@ -373,7 +383,8 @@ function renderGame() {
     box.append(el("div", { class: "list-item" },
       icon(c.kind === "branch" ? "branch" : "globe", "lead"),
       el("div", { class: "list-text" }, el("div", { class: "list-title", text: name }),
-        el("div", { class: "list-sub", text: [t("Available to download"), c.version].filter(Boolean).join(" · ") })),
+        el("div", { class: "list-sub", text: [t("Available to download"), c.version, c.kind === "branch" ? info.branchPaths?.[c.branch.toLowerCase()] : ""].filter(Boolean).join(" · ") })),
+      c.kind === "branch" ? el("button", { class: "btn text", disabled: busy, onclick: () => send({ cmd: "branchFolder", branch: c.branch }) }, t("Folder…")) : null,
       el("button", { class: "btn tonal", disabled: busy, onclick: () => send({ cmd: "downloadClient", account: c.account, value: c.kind, branch: c.branch || "" }) }, t("Download"))));
   }
   if (state.availableClientsFailed) {
@@ -821,15 +832,17 @@ function onFolderInfo(ev) {
   const row = (name, cls, text) => box.append(el("div", { class: "folder-note " + cls }, icon(name, "sm"), el("span", { text })));
   if (!ev.path.trim()) { row("info", "", t("Type a folder path or choose Browse.")); return; }
   if (!ev.valid) { row("error", "bad", t("Enter a full path on an existing drive, like D:\\Games\\Armored Warfare.")); return; }
-  if (ev.branch) row("error", "bad", t("This folder holds the FX ID {branch} branch. Choose another folder.", { branch: ev.branch }));
+  const sameBranch = ev.branch && ev.branch.toLowerCase() === (state.prompt.targetBranch || "").toLowerCase();
+  if (sameBranch) row("check", "good", t("This folder contains the selected FX ID branch."));
+  else if (ev.branch) row("error", "bad", t("This folder holds the FX ID {branch} branch. Choose another folder.", { branch: ev.branch }));
   else if (ev.install) row("check", "good", t("Armored Warfare is installed here. The launcher checks it and installs updates."));
   else if (ev.used) row("info", "warn", t("The folder is not empty. The client is installed into it next to the existing files."));
   else row("add", "", t("The full client is installed here. The folder is created if it does not exist."));
-  const enough = ev.install || ev.free >= CLIENT_SIZE;
+  const enough = ev.install || sameBranch || ev.free >= CLIENT_SIZE;
   box.append(el("div", { class: "disk" + (enough ? "" : " low") },
     icon("storage", "sm"),
     el("span", { class: "disk-drive", text: t("Drive {drive}", { drive: ev.drive }) }),
-    el("span", { class: "disk-free", text: t("{free} free", { free: formatBytes(ev.free) }) + (ev.install ? "" : t(" · the client needs about {size}", { size: formatBytes(CLIENT_SIZE) })) })));
+    el("span", { class: "disk-free", text: t("{free} free", { free: formatBytes(ev.free) }) + (ev.install || sameBranch ? "" : t(" · the client needs about {size}", { size: formatBytes(CLIENT_SIZE) })) })));
   if (!enough) row("error", "bad", t("There is not enough free space on this drive for a new install."));
 }
 
@@ -1014,6 +1027,8 @@ function setup() {
   $("add-inline").addEventListener("click", showAddAccount);
   $("add-empty").addEventListener("click", showAddAccount);
   $("game-change").addEventListener("click", () => send({ cmd: "gameFolder" }));
+  $("fx-change").addEventListener("click", () => send({ cmd: "fxFolder" }));
+  for (const b of $("main-client-mode").children) b.addEventListener("click", () => send({ cmd: "mainMode", value: b.dataset.mode }));
   $("game-open").addEventListener("click", () => send({ cmd: "openGameFolder" }));
   $("game-clear").addEventListener("click", () => send({ cmd: "clearDownloads" }));
   $("game-uninstall").addEventListener("click", () => send({ cmd: "uninstall" }));

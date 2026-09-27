@@ -57,10 +57,39 @@ func (a account) label() string {
 }
 
 type launcherConfig struct {
-	Game       string    `json:"game"`
-	FXGame     string    `json:"fx_game,omitempty"`
-	Accounts   []account `json:"accounts"`
-	LastUserID int64     `json:"last_user_id"`
+	Game         string            `json:"game"`
+	FXGame       string            `json:"fx_game,omitempty"`
+	SeparateMain bool              `json:"separate_main,omitempty"`
+	BranchGames  map[string]string `json:"branch_games,omitempty"`
+	Accounts     []account         `json:"accounts"`
+	LastUserID   int64             `json:"last_user_id"`
+}
+
+func (c *launcherConfig) setSeparateMain(separate bool) {
+	if c.SeparateMain == separate {
+		return
+	}
+	root := c.Game
+	if c.SeparateMain {
+		root = c.FXGame
+	}
+	var installedBranches []gameClient
+	if root != "" {
+		installedBranches = branchClients(root)
+	}
+	for _, installed := range installedBranches {
+		key := strings.ToLower(installed.Branch)
+		if c.BranchGames[key] == "" {
+			if c.BranchGames == nil {
+				c.BranchGames = map[string]string{}
+			}
+			c.BranchGames[key] = installed.Dir
+		}
+	}
+	if separate && c.FXGame != "" && strings.EqualFold(c.FXGame, c.Game) {
+		c.FXGame = ""
+	}
+	c.SeparateMain = separate
 }
 
 func loadConfig() (launcherConfig, error) {
@@ -79,7 +108,7 @@ func loadConfig() (launcherConfig, error) {
 	if err := json.Unmarshal(data, &cfg); err != nil {
 		return cfg, fmt.Errorf("config.json: %w", err)
 	}
-	if cfg.Game == "" && cfg.FXGame != "" {
+	if cfg.Game == "" && cfg.FXGame != "" && !cfg.SeparateMain {
 		cfg.Game, cfg.FXGame = cfg.FXGame, ""
 	}
 	return cfg, nil
@@ -116,6 +145,10 @@ func (s *configStore) get() launcherConfig {
 	defer s.mu.Unlock()
 	c := s.cfg
 	c.Accounts = append([]account(nil), s.cfg.Accounts...)
+	c.BranchGames = make(map[string]string, len(s.cfg.BranchGames))
+	for branch, dir := range s.cfg.BranchGames {
+		c.BranchGames[branch] = dir
+	}
 	return c
 }
 

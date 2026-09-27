@@ -42,6 +42,49 @@ func TestInstalledClientsFindsBranchesNextToTheGame(t *testing.T) {
 	}
 }
 
+func TestConfiguredClientFolders(t *testing.T) {
+	parent := t.TempDir()
+	vk := filepath.Join(parent, "VK")
+	fx := filepath.Join(parent, "FX")
+	branch := filepath.Join(parent, "Other drive", "SuperTest")
+	writeTree(t, vk, map[string][]byte{"-gup-/last.xml": []byte(`<Manifest Build="442"/>`)})
+	writeBranchState(t, vk, branchState{Branch: fxDefaultBranch, Version: "shared"})
+	writeBranchState(t, fx, branchState{Branch: fxDefaultBranch, Version: "separate"})
+	writeBranchState(t, branch, branchState{Branch: "SuperTest", Version: "branch"})
+	cfg := launcherConfig{Game: vk, FXGame: fx, BranchGames: map[string]string{"supertest": branch}}
+	if got := cfg.branchDir("SuperTest"); got != branch {
+		t.Fatalf("custom branch folder = %q", got)
+	}
+	shared := installedConfiguredClients(cfg)
+	if len(shared) != 3 || shared[0].Kind != clientVK || shared[1].Dir != vk || shared[2].Dir != branch {
+		t.Fatalf("shared clients = %+v", shared)
+	}
+	cfg.SeparateMain = true
+	separate := installedConfiguredClients(cfg)
+	if len(separate) != 3 || separate[0].Kind != clientVK || separate[1].Dir != fx || separate[2].Dir != branch {
+		t.Fatalf("separate clients = %+v", separate)
+	}
+	cfg.BranchGames = nil
+	if got := cfg.branchDir("SuperTest"); got != branchInstallDir(fx, "SuperTest") {
+		t.Fatalf("default branch folder in separate mode = %q", got)
+	}
+}
+
+func TestChangingMainModeKeepsInstalledBranchFolder(t *testing.T) {
+	root := filepath.Join(t.TempDir(), "Armored Warfare")
+	branch := branchInstallDir(root, "SuperTest")
+	writeBranchState(t, branch, branchState{Branch: "SuperTest"})
+	cfg := launcherConfig{Game: root}
+	cfg.setSeparateMain(true)
+	if got := cfg.branchDir("SuperTest"); got != branch {
+		t.Fatalf("branch moved from %q to %q", branch, got)
+	}
+	clients := installedConfiguredClients(cfg)
+	if len(clients) != 1 || clients[0].Dir != branch {
+		t.Fatalf("installed branch after mode change = %+v", clients)
+	}
+}
+
 func TestDescribeGameWithoutInstalledClientsHasArray(t *testing.T) {
 	info := describeGame(t.TempDir())
 	data, err := json.Marshal(info)

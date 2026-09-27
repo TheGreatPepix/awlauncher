@@ -459,7 +459,7 @@ func (g *guiApp) onMessage(message string) {
 		id, dir := c.Prompt, c.Value
 		go func() { g.emit(describeFolder(id, dir)) }()
 	case "gameInfo":
-		go func() { g.emit(describeGame(g.store.get().Game)) }()
+		go func() { g.emit(describeConfiguredGame(g.store.get())) }()
 	case "availableClients":
 		go func() { g.emit(availableGameClients(g.session)) }()
 	case "downloadClient":
@@ -493,6 +493,22 @@ func (g *guiApp) onMessage(message string) {
 		})
 	case "gameFolder":
 		go g.changeGameFolder()
+	case "fxFolder":
+		go g.changeFXFolder()
+	case "mainMode":
+		if g.gameBusy() {
+			g.notice("Wait until the game operation finishes")
+			return
+		}
+		if err := g.store.update(func(cfg *launcherConfig) { cfg.setSeparateMain(c.Value == "separate") }); err != nil {
+			g.notice(err.Error())
+			return
+		}
+		g.session.found.game = nil
+		g.emitState(false)
+		g.emit(describeConfiguredGame(g.store.get()))
+	case "branchFolder":
+		go g.changeBranchFolder(c.Branch)
 	case "openGameFolder":
 		if game := g.store.get().Game; game != "" {
 			openInShell(game)
@@ -559,6 +575,8 @@ type uiState struct {
 	Accounts      []uiAccount `json:"accounts"`
 	Game          string      `json:"game"`
 	SuggestedGame string      `json:"suggestedGame"`
+	FXGame        string      `json:"fxGame"`
+	SeparateMain  bool        `json:"separateMain"`
 	Data          string      `json:"data"`
 	Version       string      `json:"version"`
 	Autostart     string      `json:"autostart"`
@@ -590,7 +608,7 @@ func (g *guiApp) emitState(withLog bool) {
 	g.opsMu.Lock()
 	ops := append([]operation{}, g.ops...)
 	g.opsMu.Unlock()
-	s := uiState{Type: "state", Accounts: accountViews(cfg), Game: cfg.Game, SuggestedGame: suggestGameFolder(cfg.Game), Ops: ops, Running: g.gameUp.Load(), Version: Version, Autostart: autostartMode(), SystemLang: uiLanguage()}
+	s := uiState{Type: "state", Accounts: accountViews(cfg), Game: cfg.Game, FXGame: cfg.FXGame, SeparateMain: cfg.SeparateMain, SuggestedGame: suggestGameFolder(cfg.Game), Ops: ops, Running: g.gameUp.Load(), Version: Version, Autostart: autostartMode(), SystemLang: uiLanguage()}
 	if dir, err := launcherDir(); err == nil {
 		s.Data = dir
 	}
@@ -910,6 +928,10 @@ func (g *guiApp) changeGameFolder() {
 		g.notice(fmt.Sprintf("That folder contains the FX ID %s branch. Choose another folder.", state.Branch))
 		return
 	}
+	if cfg := g.store.get(); cfg.SeparateMain && strings.EqualFold(dir, cfg.FXGame) {
+		g.notice("Choose a folder different from the FX ID client.")
+		return
+	}
 	g.session.found.game = nil
 	if err := g.store.update(func(c *launcherConfig) { c.Game = dir }); err != nil {
 		g.notice(err.Error())
@@ -917,6 +939,109 @@ func (g *guiApp) changeGameFolder() {
 	}
 	fmt.Println("Main game folder:", dir)
 	g.emitState(false)
+}
+
+func (g *guiApp) changeFXFolder() {
+	if g.gameBusy() {
+		g.notice("Wait until the game operation finishes")
+		return
+	}
+	r := g.prompt("ask", "FX ID game folder: ", false, "FX ID game folder", nil)
+	if !r.ok {
+		return
+	}
+	dir := strings.Trim(strings.TrimSpace(r.value), `"'`)
+	if !describeFolder(0, dir).Valid {
+		g.notice("Enter a full path on an existing drive, like D:\\Games\\Armored Warfare.")
+		return
+	}
+	dir = filepath.Clean(dir)
+	if strings.EqualFold(dir, g.store.get().Game) || isGameDir(dir) {
+		g.notice("Choose a folder different from the VK Play client.")
+		return
+	}
+	for _, branchDir := range g.store.get().BranchGames {
+		if strings.EqualFold(dir, branchDir) {
+			g.notice("That folder is assigned to a closed branch.")
+			return
+		}
+	}
+	if state, ok := readBranchState(dir); ok && state.Branch != fxDefaultBranch {
+		g.notice("That folder contains a closed FX ID branch.")
+		return
+	}
+	if g.gameBusy() {
+		g.notice("Wait until the game operation finishes")
+		return
+	}
+	if err := g.store.update(func(c *launcherConfig) { c.FXGame = dir }); err != nil {
+		g.notice(err.Error())
+		return
+	}
+	g.emitState(false)
+	g.emit(describeConfiguredGame(g.store.get()))
+}
+
+func (g *guiApp) changeBranchFolder(branch string) {
+	if !branchNamePattern.MatchString(branch) || strings.EqualFold(branch, fxDefaultBranch) {
+		return
+	}
+	if g.gameBusy() {
+		g.notice("Wait until the game operation finishes")
+		return
+	}
+	cfg := g.store.get()
+	current := cfg.branchDir(branch)
+	r := g.prompt("ask", "Game folder for FX ID "+branch+" ["+current+"]: ", false, "FX ID "+branch, nil)
+	if !r.ok {
+		return
+	}
+	dir := strings.Trim(strings.TrimSpace(r.value), `"'`)
+	if dir == "" {
+		dir = current
+	}
+	if !describeFolder(0, dir).Valid {
+		g.notice("Enter a full path on an existing drive, like D:\\Games\\Armored Warfare.")
+		return
+	}
+	dir = filepath.Clean(dir)
+	if strings.EqualFold(dir, cfg.Game) {
+		g.notice("Choose a folder different from the main game folder.")
+		return
+	}
+	if cfg.SeparateMain && strings.EqualFold(dir, cfg.FXGame) {
+		g.notice("Choose a folder different from the FX ID main client.")
+		return
+	}
+	for other, saved := range cfg.BranchGames {
+		if !strings.EqualFold(other, branch) && strings.EqualFold(dir, saved) {
+			g.notice("That folder is assigned to another branch.")
+			return
+		}
+	}
+	if state, ok := readBranchState(dir); ok && !strings.EqualFold(state.Branch, branch) {
+		g.notice("That folder contains a different FX ID branch.")
+		return
+	}
+	if isGameDir(dir) {
+		g.notice("That folder contains the main game client.")
+		return
+	}
+	if g.gameBusy() {
+		g.notice("Wait until the game operation finishes")
+		return
+	}
+	if err := g.store.update(func(c *launcherConfig) {
+		if c.BranchGames == nil {
+			c.BranchGames = map[string]string{}
+		}
+		c.BranchGames[strings.ToLower(branch)] = dir
+	}); err != nil {
+		g.notice(err.Error())
+		return
+	}
+	g.emitState(false)
+	g.emit(describeConfiguredGame(g.store.get()))
 }
 
 type opOutput struct {
@@ -986,7 +1111,19 @@ func (g *guiApp) openPrompt(id int) {
 	}
 	if p.kind == "ask" && strings.Contains(strings.ToLower(p.question), "folder") {
 		event["folder"] = true
-		event["suggest"] = suggestGameFolder(g.store.get().Game)
+		cfg := g.store.get()
+		suggest := suggestGameFolder(cfg.Game)
+		if p.op == "FX ID game folder" || strings.Contains(p.question, "FX ID game folder") {
+			suggest = cfg.FXGame
+			if suggest == "" {
+				suggest = defaultGameDir() + " FX ID"
+			}
+		} else if strings.HasPrefix(p.op, "FX ID ") {
+			branch := strings.TrimPrefix(p.op, "FX ID ")
+			suggest = cfg.branchDir(branch)
+			event["targetBranch"] = branch
+		}
+		event["suggest"] = suggest
 	}
 	g.emit(event)
 	g.post(g.showWindow)
