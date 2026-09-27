@@ -455,6 +455,27 @@ func (g *guiApp) onMessage(message string) {
 		go func() { g.emit(describeFolder(id, dir)) }()
 	case "gameInfo":
 		go func() { g.emit(describeGame(g.store.get().Game)) }()
+	case "availableClients":
+		go func() { g.emit(availableGameClients(g.session)) }()
+	case "downloadClient":
+		acc, ok := g.findAccount(c.Account)
+		if !ok {
+			return
+		}
+		kind, branch := c.Value, c.Branch
+		op := accountOp("Downloading game", acc)
+		op.Game = true
+		g.run(op, func(s *session) (bool, error) {
+			err := s.downloadClient(acc, kind, branch)
+			if errors.Is(err, errNeedLogin) {
+				relogged, loginErr := s.relogin(acc)
+				if loginErr != nil {
+					return false, loginErr
+				}
+				err = s.downloadClient(relogged, kind, branch)
+			}
+			return false, err
+		})
 	case "verify", "removeBranch":
 		g.clientCommand(c.Cmd, c.Value, c.Branch)
 	case "clearDownloads":

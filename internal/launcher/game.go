@@ -50,12 +50,123 @@ type gameInfo struct {
 	Region    string       `json:"region,omitempty"`
 }
 
+type availableClient struct {
+	Kind    string `json:"kind"`
+	Branch  string `json:"branch,omitempty"`
+	Account string `json:"account"`
+	Version string `json:"version,omitempty"`
+}
+
+type availableClients struct {
+	Type     string            `json:"type"`
+	Clients  []availableClient `json:"clients"`
+	Failed   bool              `json:"failed,omitempty"`
+	VKFailed bool              `json:"vkFailed,omitempty"`
+}
+
+func availableGameClients(s *session) availableClients {
+	out := availableClients{Type: "availableClients", Clients: []availableClient{}}
+	seen := map[string]bool{}
+	for _, acc := range s.cfg.get().Accounts {
+		kind := clientVK
+		if acc.isFX() {
+			kind = clientFX
+		} else {
+			if !seen[kind] {
+				client := availableClient{Kind: kind, Account: strconv.FormatInt(acc.UserID, 10)}
+				if distrib, err := latestDistrib(s.client); err == nil {
+					client.Version = "build " + strconv.Itoa(distrib.Destination)
+				} else {
+					out.VKFailed = true
+				}
+				out.Clients = append(out.Clients, client)
+				seen[kind] = true
+			}
+			continue
+		}
+		branches, err := fxBranches(s.client, acc)
+		if err != nil {
+			out.Failed = true
+			continue
+		}
+		for _, b := range branches {
+			if b.Err != nil {
+				out.Failed = true
+				continue
+			}
+			if !branchNamePattern.MatchString(b.Name) {
+				continue
+			}
+			k := strings.ToLower(b.Name)
+			if seen[k] {
+				continue
+			}
+			clientKind := clientBranch
+			if strings.EqualFold(b.Name, fxDefaultBranch) {
+				clientKind = clientFX
+			}
+			out.Clients = append(out.Clients, availableClient{Kind: clientKind, Branch: b.Name, Account: strconv.FormatInt(acc.UserID, 10), Version: b.Version})
+			seen[k] = true
+		}
+	}
+	return out
+}
+
+func (s *session) downloadClient(acc account, kind, branch string) error {
+	if err := ensureGameClosed(); err != nil {
+		return err
+	}
+	if kind == clientVK {
+		if acc.isFX() {
+			return errors.New("a VK Play account is required")
+		}
+		root, err := s.sharedRoot()
+		if err != nil {
+			return err
+		}
+		return installGame(s.p, root, s.cfg.get().FXGame)
+	}
+	if !acc.isFX() || !branchNamePattern.MatchString(branch) {
+		return errors.New("an FX ID account and valid branch are required")
+	}
+	if (kind == clientFX) != strings.EqualFold(branch, fxDefaultBranch) || (kind != clientFX && kind != clientBranch) {
+		return errors.New("invalid client branch")
+	}
+	branches, err := fxBranches(s.client, acc)
+	if err != nil {
+		return err
+	}
+	available := false
+	for _, b := range branches {
+		if b.Err == nil && strings.EqualFold(b.Name, branch) {
+			branch, available = b.Name, true
+			break
+		}
+	}
+	if !available {
+		return fmt.Errorf("branch %s is not available to this account", branch)
+	}
+	root, err := s.sharedRoot()
+	if err != nil {
+		return err
+	}
+	clientRoot, mainRoot := root, ""
+	if kind == clientBranch {
+		clientRoot, mainRoot = branchInstallDir(root, branch), root
+	}
+	_, err = syncFXClient(s.client, &s.p, acc, branch, clientRoot, mainRoot, true)
+	return err
+}
+
 func describeGame(root string) gameInfo {
 	info := gameInfo{Type: "gameInfo", Dir: root, Clients: []gameClient{}}
 	if root == "" {
 		return info
 	}
 	info.Clients = installedClients(root)
+	if info.Clients == nil {
+		info.Clients = []gameClient{}
+	}
 	for _, dir := range downloadDirs(root) {
 		info.Downloads += dirSize(dir)
 	}

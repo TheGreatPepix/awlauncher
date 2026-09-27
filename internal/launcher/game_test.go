@@ -42,6 +42,21 @@ func TestInstalledClientsFindsBranchesNextToTheGame(t *testing.T) {
 	}
 }
 
+func TestDescribeGameWithoutInstalledClientsHasArray(t *testing.T) {
+	info := describeGame(t.TempDir())
+	data, err := json.Marshal(info)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var event map[string]json.RawMessage
+	if err := json.Unmarshal(data, &event); err != nil {
+		t.Fatal(err)
+	}
+	if string(event["clients"]) != "[]" {
+		t.Fatalf("clients must be an array for the UI, got %s", event["clients"])
+	}
+}
+
 func TestRemoveClientDirKeepsFilesItDoesNotKnow(t *testing.T) {
 	dir := filepath.Join(t.TempDir(), "Armored Warfare SuperTest")
 	writeTree(t, dir, map[string][]byte{
