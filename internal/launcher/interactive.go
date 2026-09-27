@@ -96,8 +96,13 @@ func chooseGameDir(p prompter, cfg *configStore) (gameInstall, error) {
 		p.say("Armored Warfare was not found. Enter the folder of an existing install, or any folder to install the game into.")
 	}
 	for {
-		dir := strings.Trim(p.line("Game folder, empty to quit: "), `"' `)
+		dir := strings.Trim(p.line(fmt.Sprintf("Game folder [%s] (Enter for default, q to quit): ", defaultGameDir())), `"' `)
 		if dir == "" {
+			if p.ask != nil {
+				return gameInstall{}, errQuit
+			}
+			dir = defaultGameDir()
+		} else if strings.EqualFold(dir, "q") {
 			return gameInstall{}, errQuit
 		}
 		g, err := openGame(dir)
@@ -468,10 +473,15 @@ func (s *session) sharedRoot() (string, error) {
 	if saved := s.cfg.get().Game; saved != "" {
 		return saved, nil
 	}
-	s.p.say("Choose a folder for the main client shared by FX ID and VK Play. Empty input returns to the menu.")
+	s.p.say("Choose a folder for the main client shared by FX ID and VK Play. Press Enter for the default, or q to return to the menu.")
 	for {
-		dir := strings.Trim(s.p.line("Game folder: "), `"' `)
+		dir := strings.Trim(s.p.line(fmt.Sprintf("Game folder [%s]: ", defaultGameDir())), `"' `)
 		if dir == "" {
+			if s.p.ask != nil {
+				return "", errQuit
+			}
+			dir = defaultGameDir()
+		} else if strings.EqualFold(dir, "q") {
 			return "", errQuit
 		}
 		root, err := filepath.Abs(dir)

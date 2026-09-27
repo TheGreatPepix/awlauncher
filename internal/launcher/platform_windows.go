@@ -18,6 +18,8 @@ func launcherDir() (string, error) {
 
 func homeDir() string { return os.Getenv("USERPROFILE") }
 
+func defaultGameDir() string { return `C:\Games\Armored Warfare` }
+
 func protectedDirs() []string {
 	var dirs []string
 	for _, env := range []string{"USERPROFILE", "SystemRoot", "ProgramFiles", "ProgramFiles(x86)", "ProgramData", "LOCALAPPDATA", "APPDATA"} {

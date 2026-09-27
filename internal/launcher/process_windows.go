@@ -113,17 +113,24 @@ var (
 	singleInstance              windows.Handle
 )
 
-func acquireInstance() bool {
+func acquireInstance() (bool, error) {
 	name, _ := windows.UTF16PtrFromString(instanceMutex)
 	h, err := windows.CreateMutex(nil, false, name)
 	if errors.Is(err, windows.ERROR_ALREADY_EXISTS) {
 		if h != 0 {
 			windows.CloseHandle(h)
 		}
-		return false
+		return false, nil
+	}
+	if err != nil {
+		return false, err
 	}
 	singleInstance = h
-	return true
+	return true, nil
+}
+
+func instanceBusyMessage() string {
+	return "AWLauncher is already running. Close it first (tray icon, Exit)"
 }
 
 func showWindowMessage() uint32 {

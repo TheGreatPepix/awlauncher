@@ -31,7 +31,7 @@ A standalone launcher for Armored Warfare, for Windows, with a console version f
    - **VK Play**: the sign-in page opens in your browser. If you are signed in to VK Play there, it returns to the launcher by itself.
    - **FX ID**: enter your e-mail, then the 6-digit code from the letter: type it or paste it with Ctrl+V, and it is sent as soon as the last digit is in.
 3. Select the account and press **Play**.
-4. On the first start the launcher looks for an existing install. If it finds none, choose a folder: an existing install is used as is, and an empty folder gets a fresh install. The dialog shows the free space on the drive.
+4. On the first start the launcher looks for an existing install. If it finds none, choose a folder from the **Game** page or when you first download or play: an existing install is used as is, and an empty folder gets a fresh install. The suggested location is `C:\Games\Armored Warfare`; you can change it. The dialog shows the free space on the drive.
 5. The launcher installs updates if there are any, checks the files and starts the game.
 
 ## Using the launcher
@@ -80,7 +80,7 @@ On Linux the launcher is the console version only: `awlauncher-linux-amd64` from
    ```bash
    chmod +x awlauncher-linux-amd64 && ./awlauncher-linux-amd64
    ```
-   Add accounts and install the game or choose an existing folder, as in the menu above. VK Play sign-in opens in the default browser.
+   Add accounts and install the game or choose an existing folder, as in the menu above. The suggested location is `~/Games/ArmoredWarfare`; press Enter to use it or type another path. VK Play sign-in opens in the default browser.
 3. For Game Mode, add the file to Steam as a non-Steam game and set its launch options to `play` (or `play ACCOUNT`). Steam then shows the game as running until it exits. Updates are installed before the start without a window, so install big updates in Desktop Mode first.
 
 Details:

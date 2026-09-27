@@ -87,7 +87,12 @@ func RunGUI() int {
 	setGUILang(loadPrefs().Lang)
 	updated := afterUpdate(os.Args)
 	inTray := hasArg(os.Args, trayFlag)
-	if !acquireInstance() {
+	acquired, lockErr := acquireInstance()
+	if lockErr != nil {
+		messageBox(0, "AWLauncher", lockErr.Error(), 0x10)
+		return 1
+	}
+	if !acquired {
 		if !activateRunningGUI() {
 			messageBox(0, "AWLauncher", tr("AWLauncher is already running in a console window. Close it first."), 0x30)
 		}
@@ -487,7 +492,7 @@ func (g *guiApp) onMessage(message string) {
 			return false, s.uninstallGame()
 		})
 	case "gameFolder":
-		g.post(g.changeGameFolder)
+		go g.changeGameFolder()
 	case "openGameFolder":
 		if game := g.store.get().Game; game != "" {
 			openInShell(game)
@@ -550,17 +555,18 @@ type uiAccount struct {
 }
 
 type uiState struct {
-	Type       string      `json:"type"`
-	Accounts   []uiAccount `json:"accounts"`
-	Game       string      `json:"game"`
-	Data       string      `json:"data"`
-	Version    string      `json:"version"`
-	Autostart  string      `json:"autostart"`
-	SystemLang string      `json:"systemLang"`
-	Ops        []operation `json:"ops"`
-	Running    bool        `json:"running"`
-	Log        *string     `json:"log,omitempty"`
-	Prefs      *uiPrefs    `json:"prefs,omitempty"`
+	Type          string      `json:"type"`
+	Accounts      []uiAccount `json:"accounts"`
+	Game          string      `json:"game"`
+	SuggestedGame string      `json:"suggestedGame"`
+	Data          string      `json:"data"`
+	Version       string      `json:"version"`
+	Autostart     string      `json:"autostart"`
+	SystemLang    string      `json:"systemLang"`
+	Ops           []operation `json:"ops"`
+	Running       bool        `json:"running"`
+	Log           *string     `json:"log,omitempty"`
+	Prefs         *uiPrefs    `json:"prefs,omitempty"`
 }
 
 func accountViews(cfg launcherConfig) []uiAccount {
@@ -584,7 +590,7 @@ func (g *guiApp) emitState(withLog bool) {
 	g.opsMu.Lock()
 	ops := append([]operation{}, g.ops...)
 	g.opsMu.Unlock()
-	s := uiState{Type: "state", Accounts: accountViews(cfg), Game: cfg.Game, Ops: ops, Running: g.gameUp.Load(), Version: Version, Autostart: autostartMode(), SystemLang: uiLanguage()}
+	s := uiState{Type: "state", Accounts: accountViews(cfg), Game: cfg.Game, SuggestedGame: suggestGameFolder(cfg.Game), Ops: ops, Running: g.gameUp.Load(), Version: Version, Autostart: autostartMode(), SystemLang: uiLanguage()}
 	if dir, err := launcherDir(); err == nil {
 		s.Data = dir
 	}
@@ -887,8 +893,13 @@ func (g *guiApp) changeGameFolder() {
 		g.notice(wait)
 		return
 	}
-	dir, err := pickFolder(g.win.hwnd, "Main game folder", g.store.get().Game)
-	if err != nil {
+	r := g.prompt("ask", "Game folder: ", false, "Main game folder", nil)
+	if !r.ok {
+		return
+	}
+	dir := strings.Trim(strings.TrimSpace(r.value), `"'`)
+	if !describeFolder(0, dir).Valid {
+		g.notice("Enter a full path on an existing drive, like D:\\Games\\Armored Warfare.")
 		return
 	}
 	if g.gameBusy() {
@@ -1023,13 +1034,7 @@ func suggestGameFolder(saved string) string {
 	if saved != "" {
 		return saved
 	}
-	best, bestFree := `C:\Games\Armored Warfare`, int64(-1)
-	for _, root := range fixedDrives() {
-		if free, err := diskFree(root); err == nil && free > bestFree {
-			best, bestFree = filepath.Join(root, "Games", "Armored Warfare"), free
-		}
-	}
-	return best
+	return defaultGameDir()
 }
 
 func (g *guiApp) answer(id int, value string, ok bool) {

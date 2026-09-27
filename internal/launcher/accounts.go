@@ -255,7 +255,7 @@ func isGameDir(dir string) bool {
 }
 
 var gameDirNames = []string{
-	"Games/Armored Warfare", "GamesMailRu/Armored Warfare", "VK Play/Armored Warfare",
+	"Games/Armored Warfare", "Games/ArmoredWarfare", "GamesMailRu/Armored Warfare", "VK Play/Armored Warfare",
 	"WishlistGames/Armored Warfare", "Wishlist Games/Armored Warfare",
 	"Armored Warfare",
 }

@@ -9,6 +9,7 @@ const state = {
   selected: "",
   lastId: "",
   game: "",
+  suggestedGame: "",
   data: "",
   ops: [],
   running: false,
@@ -217,6 +218,7 @@ function onState(ev) {
   state.lastId = last;
   if (!state.accounts.some((a) => a.id === state.selected)) state.selected = last || (state.accounts[0] || {}).id || "";
   state.game = ev.game;
+  state.suggestedGame = ev.suggestedGame || "";
   state.data = ev.data;
   state.ops = ev.ops || [];
   state.running = !!ev.running;
@@ -230,7 +232,8 @@ function onState(ev) {
 }
 
 function renderFolders() {
-  $("game-folder").textContent = state.game || t("Chosen on the first start");
+  $("game-folder").textContent = state.game || (state.suggestedGame ? t("Suggested: {path}", { path: state.suggestedGame }) : t("Chosen on the first start"));
+  $("game-change").textContent = t(state.game ? "Change…" : "Choose…");
   $("data-folder").textContent = state.data || "%LOCALAPPDATA%\\AWLauncher";
   $("game-open").disabled = !state.game;
 }

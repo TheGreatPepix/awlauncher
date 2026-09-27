@@ -36,6 +36,8 @@ func homeDir() string {
 	return home
 }
 
+func defaultGameDir() string { return filepath.Join(homeDir(), "Games", "ArmoredWarfare") }
+
 func protectedDirs() []string {
 	dirs := []string{homeDir(), "/home", "/usr", "/etc", "/var", "/opt", "/boot", "/run/media", "/media", "/mnt"}
 	if data, err := launcherDir(); err == nil {
@@ -203,24 +205,31 @@ func closeGame(grace time.Duration) error {
 
 var instanceLock *os.File
 
-func acquireInstance() bool {
+func acquireInstance() (bool, error) {
 	dir, err := launcherDir()
 	if err != nil {
-		return true
+		return false, err
 	}
 	if err := os.MkdirAll(dir, 0700); err != nil {
-		return true
+		return false, err
 	}
 	f, err := os.OpenFile(filepath.Join(dir, "instance.lock"), os.O_CREATE|os.O_RDWR, 0600)
 	if err != nil {
-		return true
+		return false, err
 	}
 	if err := unix.Flock(int(f.Fd()), unix.LOCK_EX|unix.LOCK_NB); err != nil {
-		f.Close()
-		return false
+		_ = f.Close()
+		if errors.Is(err, unix.EWOULDBLOCK) || errors.Is(err, unix.EAGAIN) {
+			return false, nil
+		}
+		return false, err
 	}
 	instanceLock = f
-	return true
+	return true, nil
+}
+
+func instanceBusyMessage() string {
+	return "AWLauncher is already running in another terminal or Steam session. Find it with 'pgrep -af awlauncher' and close that process before starting another."
 }
 
 func activateRunningGUI() bool { return false }

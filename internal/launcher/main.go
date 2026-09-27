@@ -132,13 +132,16 @@ func Run() int {
 	}
 	bringLauncherForward = focusConsole
 	var err error
-	if acquireInstance() {
+	acquired, lockErr := acquireInstance()
+	if lockErr != nil {
+		err = fmt.Errorf("cannot lock the launcher instance: %w", lockErr)
+	} else if acquired {
 		err = run()
 	} else {
 		if activateRunningGUI() {
 			fmt.Println("AWLauncher is already running; its window is brought forward.")
 		}
-		err = errors.New("AWLauncher is already running. Close it first (tray icon, Exit)")
+		err = errors.New(instanceBusyMessage())
 	}
 	if err != nil {
 		fmt.Fprintln(os.Stderr, "Error:", strings.TrimSpace(err.Error()))
