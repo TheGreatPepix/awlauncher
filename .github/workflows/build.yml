@@ -1,0 +1,128 @@
+name: Build
+
+on:
+  push:
+    branches: [main]
+    tags: ["v*"]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+defaults:
+  run:
+    shell: bash
+
+jobs:
+  build:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-go@v6
+        with:
+          go-version-file: go.mod
+
+      - name: Vet
+        run: go vet ./...
+
+      - name: Test
+        run: go test ./...
+
+      - name: Build
+        run: |
+          mkdir dist
+          version=$(git describe --tags --match 'v*' --always)
+          echo "Version: $version"
+          echo "AW_VERSION=$version" >> "$GITHUB_ENV"
+          stamp="-X github.com/TheGreatPepix/awlauncher/internal/launcher.Version=$version"
+          go build -trimpath -ldflags "-s -w -H=windowsgui $stamp" -o dist/AWLauncher.exe ./cmd/awlauncher
+          go build -trimpath -ldflags "-s -w $stamp" -o dist/AWLauncherConsole.exe ./cmd/awlauncher-console
+          ls -l dist
+
+      - name: Installer
+        run: |
+          find_iscc() {
+            for p in "/c/Program Files (x86)/Inno Setup 6/ISCC.exe" "/c/Program Files/Inno Setup 6/ISCC.exe"; do
+              [ -f "$p" ] && { echo "$p"; return; }
+            done
+          }
+          iscc=$(find_iscc)
+          if [ -z "$iscc" ]; then
+            choco install innosetup --yes --no-progress
+            iscc=$(find_iscc)
+          fi
+          app_version=${AW_VERSION#v}
+          core=
+          if [[ $AW_VERSION =~ ^v([0-9]+(\.[0-9]+){0,2})(-|$) ]]; then core=${BASH_REMATCH[1]}; fi
+          IFS=. read -r major minor patch <<< "${core:-0}"
+          file_version="${major:-0}.${minor:-0}.${patch:-0}.0"
+          echo "Installer version: $app_version ($file_version)"
+          "$iscc" -Q "-DAppVersion=$app_version" "-DFileVersion=$file_version" installer/awlauncher.iss
+          ls -l dist
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: AWLauncher-${{ github.sha }}
+          path: dist/*.exe
+          if-no-files-found: error
+
+  linux:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-go@v6
+        with:
+          go-version-file: go.mod
+
+      - name: Vet
+        run: go vet ./...
+
+      - name: Test
+        run: go test ./...
+
+      - name: Build
+        run: |
+          mkdir dist
+          version=$(git describe --tags --match 'v*' --always)
+          echo "Version: $version"
+          CGO_ENABLED=0 go build -trimpath -ldflags "-s -w -X github.com/TheGreatPepix/awlauncher/internal/launcher.Version=$version" -o dist/awlauncher-linux-amd64 ./cmd/awlauncher-console
+          ls -l dist
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: AWLauncher-linux-${{ github.sha }}
+          path: dist/awlauncher-linux-amd64
+          if-no-files-found: error
+
+  release:
+    if: startsWith(github.ref, 'refs/tags/v')
+    needs: [build, linux]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: AWLauncher-${{ github.sha }}
+          path: dist
+
+      - uses: actions/download-artifact@v4
+        with:
+          name: AWLauncher-linux-${{ github.sha }}
+          path: dist
+
+      - name: Publish the release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+        run: |
+          gh release view "$GITHUB_REF_NAME" > /dev/null 2>&1 ||
+            gh release create "$GITHUB_REF_NAME" --title "$GITHUB_REF_NAME" --generate-notes
+          gh release upload "$GITHUB_REF_NAME" dist/*.exe dist/awlauncher-linux-amd64 --clobber
