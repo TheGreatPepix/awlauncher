@@ -9,8 +9,7 @@ import (
 	"path/filepath"
 	"time"
 
-	"github.com/TheGreatPepix/awlauncher/internal/launcher/cache"
-	"github.com/TheGreatPepix/awlauncher/internal/launcher/platform"
+	"github.com/TheGreatPepix/awlauncher/internal/platform"
 )
 
 const (
@@ -73,7 +72,7 @@ func InstallPatches(gameRoot string, patches []patchInfo) error {
 			return errors.New("installed build was not updated")
 		}
 	}
-	cache.Cleanup(cacheRoot, build)
+	CleanupCache(cacheRoot, build)
 	return nil
 }
 

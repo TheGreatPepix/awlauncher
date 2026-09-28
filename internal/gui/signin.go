@@ -4,7 +4,7 @@ import (
 	"log"
 
 	"github.com/TheGreatPepix/awlauncher/internal/launcher"
-	"github.com/TheGreatPepix/awlauncher/internal/launcher/platform"
+	"github.com/TheGreatPepix/awlauncher/internal/platform"
 )
 
 type signIn struct {

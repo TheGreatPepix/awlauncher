@@ -10,11 +10,11 @@ import (
 	"strings"
 	"time"
 
-	"github.com/TheGreatPepix/awlauncher/internal/launcher/catalog"
-	"github.com/TheGreatPepix/awlauncher/internal/launcher/platform"
+	"github.com/TheGreatPepix/awlauncher/internal/launcher/vkplay"
+	"github.com/TheGreatPepix/awlauncher/internal/platform"
 )
 
-type patchInfo = catalog.PatchInfo
+type patchInfo = vkplay.PatchInfo
 
 type Manifest struct {
 	XMLName       xml.Name   `xml:"Manifest"`
@@ -57,7 +57,7 @@ func CurrentBuild(game string) (int, []byte, error) {
 	var last struct {
 		Build int `xml:"Build,attr"`
 	}
-	if err := catalog.ReadXML(data, &last); err != nil {
+	if err := vkplay.ReadXML(data, &last); err != nil {
 		return 0, nil, err
 	}
 	if last.Build <= 0 {
@@ -89,7 +89,7 @@ func setAttr(attrs []xml.Attr, name, value string) []xml.Attr {
 
 func newLastXML(old []byte, patch patchInfo, manifest Manifest) ([]byte, error) {
 	var last xmlElement
-	if err := catalog.ReadXML(old, &last); err != nil {
+	if err := vkplay.ReadXML(old, &last); err != nil {
 		return nil, err
 	}
 	if last.XMLName.Local != "Manifest" {

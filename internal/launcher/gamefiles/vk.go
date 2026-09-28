@@ -10,8 +10,10 @@ import (
 	"strings"
 	"time"
 
-	"github.com/TheGreatPepix/awlauncher/internal/launcher/catalog"
+	"github.com/TheGreatPepix/awlauncher/internal/download"
+	"github.com/TheGreatPepix/awlauncher/internal/httpx"
 	"github.com/TheGreatPepix/awlauncher/internal/launcher/torrent"
+	"github.com/TheGreatPepix/awlauncher/internal/launcher/vkplay"
 )
 
 type vkDistrib struct {
@@ -23,7 +25,7 @@ type vkDistrib struct {
 
 func fetchVKDistrib(build int) (vkDistrib, error) {
 	client := &http.Client{Timeout: 90 * time.Second}
-	info, err := catalog.LatestDistrib(client)
+	info, err := vkplay.LatestDistrib(client)
 	if err != nil {
 		return vkDistrib{}, err
 	}
@@ -42,11 +44,11 @@ func fetchVKDistrib(build int) (vkDistrib, error) {
 }
 
 func fetchTorrent(client *http.Client, link, sha1 string) (torrent.Meta, error) {
-	data, err := catalog.Fetch(client, link, 16<<20)
+	data, err := httpx.Get(client, link, 16<<20)
 	if err != nil {
 		return torrent.Meta{}, err
 	}
-	if err := catalog.VerifyHexDigest(data, sha1, "sha1"); err != nil {
+	if err := download.VerifyHexDigest(data, sha1, "sha1"); err != nil {
 		return torrent.Meta{}, fmt.Errorf("torrent: %w", err)
 	}
 	return torrent.Parse(data)
@@ -63,7 +65,7 @@ func fetchFullClientManifest(client *http.Client, meta torrent.Meta, distrib pat
 	if manifestName == "" {
 		return Manifest{}, nil, errors.New("full client torrent has no file manifest")
 	}
-	compressed, err := catalog.Fetch(client, meta.Webseed+url.PathEscape(meta.Name)+"/"+manifestName, 16<<20)
+	compressed, err := httpx.Get(client, meta.Webseed+url.PathEscape(meta.Name)+"/"+manifestName, 16<<20)
 	if err != nil {
 		return Manifest{}, nil, fmt.Errorf("file manifest: %w", err)
 	}

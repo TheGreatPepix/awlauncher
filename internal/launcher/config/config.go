@@ -11,7 +11,7 @@ import (
 	"sync"
 
 	"github.com/TheGreatPepix/awlauncher/internal/launcher/gamefiles"
-	"github.com/TheGreatPepix/awlauncher/internal/launcher/platform"
+	"github.com/TheGreatPepix/awlauncher/internal/platform"
 )
 
 type Account struct {

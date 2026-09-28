@@ -11,10 +11,10 @@ import (
 	"time"
 
 	"github.com/TheGreatPepix/awlauncher/internal/fileutil"
+	"github.com/TheGreatPepix/awlauncher/internal/httpx"
 	"github.com/TheGreatPepix/awlauncher/internal/launcher/config"
 	"github.com/TheGreatPepix/awlauncher/internal/launcher/fxid"
-	"github.com/TheGreatPepix/awlauncher/internal/launcher/platform"
-	"github.com/TheGreatPepix/awlauncher/internal/launcher/vkauth"
+	"github.com/TheGreatPepix/awlauncher/internal/platform"
 	"github.com/TheGreatPepix/awlauncher/internal/progress"
 )
 
@@ -82,8 +82,8 @@ func fxSession(client *http.Client, acc config.Account) (fxid.Tokens, error) {
 	}
 	resp, err := fxid.Authenticate(client, fxid.AuthRequest{Locale: platform.Language(), RefreshToken: refresh})
 	if err != nil {
-		var status *vkauth.HTTPStatusError
-		if errors.As(err, &status) && status.Code >= 400 && status.Code < 500 {
+		var status *httpx.StatusError
+		if errors.As(err, &status) && status.ClientError() {
 			_ = config.ClearRefreshToken(acc.UserID)
 			return fxid.Tokens{}, ErrNeedLogin
 		}

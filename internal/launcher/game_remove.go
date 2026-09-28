@@ -7,7 +7,6 @@ import (
 	"path/filepath"
 	"strings"
 
-	cachefiles "github.com/TheGreatPepix/awlauncher/internal/launcher/cache"
 	"github.com/TheGreatPepix/awlauncher/internal/launcher/gamefiles"
 	"github.com/TheGreatPepix/awlauncher/internal/progress"
 )
@@ -20,7 +19,7 @@ func (s *Session) ClearDownloads(roots ...string) error {
 	var dirs []string
 	for _, root := range roots {
 		for _, dir := range gamefiles.DownloadDirs(root) {
-			if n := cachefiles.DirSize(dir); n > 0 {
+			if n := gamefiles.DirSize(dir); n > 0 {
 				size += n
 				dirs = append(dirs, dir)
 			}

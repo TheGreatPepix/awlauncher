@@ -14,7 +14,7 @@ import (
 	"sync/atomic"
 	"testing"
 
-	"github.com/TheGreatPepix/awlauncher/internal/launcher/platform"
+	"github.com/TheGreatPepix/awlauncher/internal/platform"
 )
 
 func sum(b []byte) string { s := sha256.Sum256(b); return hex.EncodeToString(s[:]) }

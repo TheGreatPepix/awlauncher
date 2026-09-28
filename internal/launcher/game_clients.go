@@ -7,12 +7,11 @@ import (
 	"strconv"
 	"strings"
 
-	cachefiles "github.com/TheGreatPepix/awlauncher/internal/launcher/cache"
-	"github.com/TheGreatPepix/awlauncher/internal/launcher/catalog"
 	"github.com/TheGreatPepix/awlauncher/internal/launcher/config"
 	"github.com/TheGreatPepix/awlauncher/internal/launcher/fxid"
 	"github.com/TheGreatPepix/awlauncher/internal/launcher/gamefiles"
-	"github.com/TheGreatPepix/awlauncher/internal/launcher/platform"
+	"github.com/TheGreatPepix/awlauncher/internal/launcher/vkplay"
+	"github.com/TheGreatPepix/awlauncher/internal/platform"
 )
 
 type GameInfo struct {
@@ -44,7 +43,7 @@ func (s *Session) AvailableClients() AvailableClients {
 		} else {
 			if !seen[kind] {
 				client := AvailableClient{Kind: kind, Account: strconv.FormatInt(acc.UserID, 10)}
-				if distrib, err := catalog.LatestDistrib(s.client); err == nil {
+				if distrib, err := vkplay.LatestDistrib(s.client); err == nil {
 					client.Version = "build " + strconv.Itoa(distrib.Destination)
 				} else {
 					out.VKFailed = true
@@ -151,7 +150,7 @@ func describeGame(root string) GameInfo {
 		info.Clients = []gamefiles.Client{}
 	}
 	for _, dir := range gamefiles.DownloadDirs(root) {
-		info.Downloads += cachefiles.DirSize(dir)
+		info.Downloads += gamefiles.DirSize(dir)
 	}
 	info.Free, _ = platform.DiskFree(root)
 	return info
@@ -171,7 +170,7 @@ func describeConfiguredGame(cfg config.Config) GameInfo {
 	}
 	for i := range info.Clients {
 		for _, dir := range gamefiles.DownloadDirs(info.Clients[i].Dir) {
-			info.Clients[i].Downloads += cachefiles.DirSize(dir)
+			info.Clients[i].Downloads += gamefiles.DirSize(dir)
 		}
 	}
 	for _, other := range configuredRoots(cfg) {
@@ -179,7 +178,7 @@ func describeConfiguredGame(cfg config.Config) GameInfo {
 			continue
 		}
 		for _, cache := range gamefiles.DownloadDirs(other) {
-			info.Downloads += cachefiles.DirSize(cache)
+			info.Downloads += gamefiles.DirSize(cache)
 		}
 	}
 	return info

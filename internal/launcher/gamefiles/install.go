@@ -11,8 +11,8 @@ import (
 	"time"
 
 	"github.com/TheGreatPepix/awlauncher/internal/fileutil"
-	"github.com/TheGreatPepix/awlauncher/internal/launcher/platform"
-	"github.com/TheGreatPepix/awlauncher/internal/launcher/vkauth"
+	"github.com/TheGreatPepix/awlauncher/internal/launcher/vkplay"
+	"github.com/TheGreatPepix/awlauncher/internal/platform"
 )
 
 const gib = 1 << 30
@@ -105,7 +105,7 @@ func writeInstalledLastXML(gup string, distrib patchInfo, manifest Manifest) err
 		last.Attrs = setAttr(last.Attrs, a[0], a[1])
 	}
 	misc := mergeMisc(xmlElement{}, manifest.Misc)
-	misc.Attrs = setAttrFold(misc.Attrs, "GAMEID", "0."+vkauth.GameProjectID)
+	misc.Attrs = setAttrFold(misc.Attrs, "GAMEID", "0."+vkplay.GameProjectID)
 	last.Children = append(last.Children, misc)
 	if manifest.RunCheck.XMLName.Local != "" {
 		last.Children = append(last.Children, manifest.RunCheck)

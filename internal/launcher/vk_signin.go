@@ -8,8 +8,8 @@ import (
 	"sync"
 	"time"
 
-	"github.com/TheGreatPepix/awlauncher/internal/launcher/platform"
-	"github.com/TheGreatPepix/awlauncher/internal/launcher/vkbridge"
+	"github.com/TheGreatPepix/awlauncher/internal/launcher/vkplay/bridge"
+	"github.com/TheGreatPepix/awlauncher/internal/platform"
 )
 
 type pageResult struct {
@@ -26,16 +26,16 @@ func (s *Session) browserCode(ctx context.Context) (string, error) {
 		return "", errSignInBusy
 	}
 	defer vkSignInMu.Unlock()
-	state, err := vkbridge.RandomHex(16)
+	state, err := bridge.RandomHex(16)
 	if err != nil {
 		return "", err
 	}
-	bridge, closeBridge, err := vkbridge.Start(state)
+	srv, closeBridge, err := bridge.Start(state)
 	if err != nil {
 		return "", err
 	}
 	defer closeBridge()
-	loginURL, freshURL := vkbridge.LoginURL(state, false), vkbridge.LoginURL(state, true)
+	loginURL, freshURL := bridge.LoginURL(state, false), bridge.LoginURL(state, true)
 	results := make(chan pageResult, 4)
 	report := func(code, state string, err error) {
 		select {
@@ -52,21 +52,21 @@ func (s *Session) browserCode(ctx context.Context) (string, error) {
 	defer hint.Stop()
 	for {
 		select {
-		case code := <-bridge.Codes():
+		case code := <-srv.Codes():
 			return code, nil
 		case r := <-results:
 			if r.err != nil {
 				return "", r.err
 			}
-			if vkbridge.ValidCode(r.code) && subtle.ConstantTimeCompare([]byte(r.state), []byte(state)) == 1 {
-				bridge.MarkUsed()
+			if bridge.ValidCode(r.code) && subtle.ConstantTimeCompare([]byte(r.state), []byte(state)) == 1 {
+				srv.MarkUsed()
 				return r.code, nil
 			}
 			log.Print("Sign-in response rejected; still waiting.")
 		case <-ctx.Done():
 			return "", ctx.Err()
 		case <-hint.C:
-			if !bridge.Connected() {
+			if !srv.Connected() {
 				log.Printf("The browser has not reached the launcher yet. If it asks whether vkplay.ru may access apps on this device, allow it.\n"+
 					"If it offers to open VK Games, cancel that: this browser does not let the page talk to programs on this computer.\n"+
 					"Then open this link in your browser; the launcher keeps waiting:\n%s\n"+

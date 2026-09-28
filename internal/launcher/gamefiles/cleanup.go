@@ -8,7 +8,7 @@ import (
 	"sort"
 	"strings"
 
-	"github.com/TheGreatPepix/awlauncher/internal/launcher/platform"
+	"github.com/TheGreatPepix/awlauncher/internal/platform"
 )
 
 func removeEmptyDirs(root string) {

@@ -1,4 +1,4 @@
-package cache
+package gamefiles
 
 import (
 	"io/fs"
@@ -29,7 +29,7 @@ func staleCacheEntries(names []string, build int) []string {
 	return stale
 }
 
-func Cleanup(cacheRoot string, build int) {
+func CleanupCache(cacheRoot string, build int) {
 	entries, err := os.ReadDir(cacheRoot)
 	if err != nil {
 		return

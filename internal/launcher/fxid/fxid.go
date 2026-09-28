@@ -14,8 +14,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/TheGreatPepix/awlauncher/internal/launcher/catalog"
-	"github.com/TheGreatPepix/awlauncher/internal/launcher/vkauth"
+	"github.com/TheGreatPepix/awlauncher/internal/httpx"
 )
 
 var Base = "https://id.wishlistgames.net"
@@ -99,7 +98,7 @@ func Authenticate(client *http.Client, req AuthRequest) (AuthResponse, error) {
 	}
 	httpReq.Header.Set("Content-Type", "application/json")
 	httpReq.Header.Set("Accept", "application/json")
-	httpReq.Header.Set("User-Agent", vkauth.BrowserAgent)
+	httpReq.Header.Set("User-Agent", httpx.BrowserAgent)
 	r, err := client.Do(httpReq)
 	if err != nil {
 		return resp, err
@@ -110,7 +109,7 @@ func Authenticate(client *http.Client, req AuthRequest) (AuthResponse, error) {
 		return resp, err
 	}
 	if r.StatusCode != http.StatusOK {
-		return resp, &vkauth.HTTPStatusError{Host: httpReq.URL.Host, Code: r.StatusCode}
+		return resp, &httpx.StatusError{Host: httpReq.URL.Host, Code: r.StatusCode}
 	}
 	if err := json.Unmarshal(data, &resp); err != nil {
 		return resp, errors.New("unexpected FX ID response")
@@ -143,7 +142,7 @@ func call(client *http.Client, method, path, accessToken string, body, out any) 
 	}
 	req.Header.Set("Authorization", "Bearer "+accessToken)
 	req.Header.Set("Accept", "application/json")
-	req.Header.Set("User-Agent", vkauth.BrowserAgent)
+	req.Header.Set("User-Agent", httpx.BrowserAgent)
 	if body != nil {
 		req.Header.Set("Content-Type", "application/json")
 	}
@@ -165,7 +164,7 @@ func call(client *http.Client, method, path, accessToken string, body, out any) 
 		if msg := problemText(data); msg != "" {
 			return fmt.Errorf("%s (HTTP %d)", msg, resp.StatusCode)
 		}
-		return &vkauth.HTTPStatusError{Host: req.URL.Host, Code: resp.StatusCode}
+		return &httpx.StatusError{Host: req.URL.Host, Code: resp.StatusCode}
 	}
 	if out == nil {
 		return nil
@@ -295,7 +294,7 @@ func JWTExpiry(token string) (time.Time, bool) {
 }
 
 func LaunchTemplate(client *http.Client) string {
-	data, err := catalog.Fetch(client, Base+"/api/v1/public_game_config/"+Game+"?WebPublishingPlatform="+Platform, 4<<20)
+	data, err := httpx.Get(client, Base+"/api/v1/public_game_config/"+Game+"?WebPublishingPlatform="+Platform, 4<<20)
 	if err != nil {
 		return LaunchDefault
 	}

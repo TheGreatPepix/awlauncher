@@ -14,7 +14,7 @@ import (
 	"time"
 
 	"github.com/TheGreatPepix/awlauncher/internal/download"
-	"github.com/TheGreatPepix/awlauncher/internal/launcher/platform"
+	"github.com/TheGreatPepix/awlauncher/internal/platform"
 	"github.com/TheGreatPepix/awlauncher/internal/progress"
 )
 

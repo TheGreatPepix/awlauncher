@@ -7,9 +7,9 @@ import (
 	"strings"
 	"time"
 
-	"github.com/TheGreatPepix/awlauncher/internal/launcher/catalog"
 	"github.com/TheGreatPepix/awlauncher/internal/launcher/config"
 	"github.com/TheGreatPepix/awlauncher/internal/launcher/gamefiles"
+	"github.com/TheGreatPepix/awlauncher/internal/launcher/vkplay"
 )
 
 func (s *Session) FindClient(kind, branch string) (gamefiles.Client, error) {
@@ -53,7 +53,7 @@ func (s *Session) verifyVK(root string) error {
 	if err != nil {
 		return err
 	}
-	patches, latest, err := catalog.LatestPatches(&http.Client{Timeout: 90 * time.Second}, g.Build)
+	patches, latest, err := vkplay.LatestPatches(&http.Client{Timeout: 90 * time.Second}, g.Build)
 	if err != nil {
 		return fmt.Errorf("update check: %w", err)
 	}

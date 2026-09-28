@@ -1,4 +1,4 @@
-package vkbridge
+package bridge
 
 import (
 	"bytes"

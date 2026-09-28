@@ -10,12 +10,12 @@ import (
 	"sync"
 	"time"
 
-	"github.com/TheGreatPepix/awlauncher/internal/appicon"
+	"github.com/TheGreatPepix/awlauncher/internal/gui/appicon"
 	"github.com/TheGreatPepix/awlauncher/internal/gui/startup"
 	"github.com/TheGreatPepix/awlauncher/internal/gui/ui"
+	"github.com/TheGreatPepix/awlauncher/internal/gui/update"
 	"github.com/TheGreatPepix/awlauncher/internal/launcher/config"
-	"github.com/TheGreatPepix/awlauncher/internal/launcher/platform"
-	"github.com/TheGreatPepix/awlauncher/internal/launcher/update"
+	"github.com/TheGreatPepix/awlauncher/internal/platform"
 	"github.com/jchv/go-webview2/pkg/edge"
 	"github.com/jchv/go-webview2/webviewloader"
 )

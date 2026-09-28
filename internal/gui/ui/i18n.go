@@ -3,7 +3,7 @@ package ui
 import (
 	"sync/atomic"
 
-	"github.com/TheGreatPepix/awlauncher/internal/launcher/platform"
+	"github.com/TheGreatPepix/awlauncher/internal/platform"
 )
 
 var guiRU = map[string]string{

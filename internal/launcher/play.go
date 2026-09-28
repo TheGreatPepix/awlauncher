@@ -9,10 +9,9 @@ import (
 	"strings"
 	"time"
 
-	"github.com/TheGreatPepix/awlauncher/internal/launcher/cache"
-	"github.com/TheGreatPepix/awlauncher/internal/launcher/catalog"
 	"github.com/TheGreatPepix/awlauncher/internal/launcher/config"
 	"github.com/TheGreatPepix/awlauncher/internal/launcher/gamefiles"
+	"github.com/TheGreatPepix/awlauncher/internal/launcher/vkplay"
 )
 
 func (s *Session) Play(acc config.Account) error {
@@ -154,13 +153,13 @@ func (s *Session) installInto(dir string) (gamefiles.Install, bool) {
 
 func (s *Session) ensureUpdated(g *gamefiles.Install) bool {
 	s.ui.Say("Checking for updates...")
-	patches, latest, err := catalog.LatestPatches(&http.Client{Timeout: 90 * time.Second}, g.Build)
+	patches, latest, err := vkplay.LatestPatches(&http.Client{Timeout: 90 * time.Second}, g.Build)
 	if err != nil {
 		s.ui.Say("Update check failed:", err)
 		return s.ui.Yes("Continue anyway?", false)
 	}
 	if len(patches) == 0 {
-		cache.Cleanup(gamefiles.CacheDir(g.Root), g.Build)
+		gamefiles.CleanupCache(gamefiles.CacheDir(g.Root), g.Build)
 		s.ui.Sayf("Build %d is up to date.", g.Build)
 		return true
 	}

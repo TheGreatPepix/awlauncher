@@ -15,7 +15,7 @@ import (
 	"time"
 
 	"github.com/TheGreatPepix/awlauncher/internal/fileutil"
-	"github.com/TheGreatPepix/awlauncher/internal/launcher/catalog"
+	"github.com/TheGreatPepix/awlauncher/internal/launcher/vkplay"
 	"github.com/TheGreatPepix/awlauncher/internal/progress"
 )
 
@@ -46,7 +46,7 @@ func loadClientInventory(root string, build int) (clientInventory, error) {
 		return inv, saveClientInventory(root, inv)
 	}
 	client := &http.Client{Timeout: 90 * time.Second}
-	distrib, err := catalog.LatestDistrib(client)
+	distrib, err := vkplay.LatestDistrib(client)
 	if err != nil {
 		return clientInventory{}, fmt.Errorf("get client file list: %w", err)
 	}

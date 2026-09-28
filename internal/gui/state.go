@@ -7,7 +7,7 @@ import (
 	"github.com/TheGreatPepix/awlauncher/internal/gui/ui"
 	"github.com/TheGreatPepix/awlauncher/internal/launcher"
 	"github.com/TheGreatPepix/awlauncher/internal/launcher/config"
-	"github.com/TheGreatPepix/awlauncher/internal/launcher/platform"
+	"github.com/TheGreatPepix/awlauncher/internal/platform"
 )
 
 type uiAccount struct {

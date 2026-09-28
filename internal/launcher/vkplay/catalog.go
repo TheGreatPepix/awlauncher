@@ -1,16 +1,13 @@
-package catalog
+package vkplay
 
 import (
 	"bytes"
-	"crypto/sha1"
-	"crypto/sha256"
-	"encoding/hex"
 	"encoding/xml"
 	"errors"
 	"fmt"
-	"io"
 	"net/http"
-	"strings"
+
+	"github.com/TheGreatPepix/awlauncher/internal/httpx"
 )
 
 const patchBase = "http://static.dl.mail.ru/torrents/patches/armoredwarfare_hd"
@@ -37,25 +34,6 @@ func ReadXML(data []byte, value any) error {
 	return xml.Unmarshal(bytes.TrimPrefix(data, []byte{0xef, 0xbb, 0xbf}), value)
 }
 
-func Fetch(ctx *http.Client, url string, max int64) ([]byte, error) {
-	resp, err := ctx.Get(url)
-	if err != nil {
-		return nil, err
-	}
-	defer resp.Body.Close()
-	if resp.StatusCode != http.StatusOK {
-		return nil, fmt.Errorf("GET %s: %s", url, resp.Status)
-	}
-	data, err := io.ReadAll(io.LimitReader(resp.Body, max+1))
-	if err != nil {
-		return nil, err
-	}
-	if int64(len(data)) > max {
-		return nil, fmt.Errorf("response too large: %s", url)
-	}
-	return data, nil
-}
-
 type head struct {
 	Build int    `xml:"BuildId,attr"`
 	Name  string `xml:"Name,attr"`
@@ -63,7 +41,7 @@ type head struct {
 
 func latestBuild(client *http.Client) (head, error) {
 	var h head
-	head, err := Fetch(client, patchBase+"_head.xml?gid=0.11321", 1<<20)
+	head, err := httpx.Get(client, patchBase+"_head.xml?gid=0.11321", 1<<20)
 	if err != nil {
 		return h, err
 	}
@@ -78,7 +56,7 @@ func latestBuild(client *http.Client) (head, error) {
 
 func fetchCatalog(client *http.Client, h head) (Index, error) {
 	var index Index
-	data, err := Fetch(client, patchBase+"0.xml?gid=0.11321", 8<<20)
+	data, err := httpx.Get(client, patchBase+"0.xml?gid=0.11321", 8<<20)
 	if err != nil {
 		return index, err
 	}
@@ -157,22 +135,4 @@ func LatestPatches(client *http.Client, installed int) ([]PatchInfo, int, error)
 		path[i], path[j] = path[j], path[i]
 	}
 	return path, h.Build, nil
-}
-
-func VerifyHexDigest(data []byte, expected string, algorithm string) error {
-	var sum []byte
-	switch algorithm {
-	case "sha1":
-		s := sha1.Sum(data)
-		sum = s[:]
-	case "sha256":
-		s := sha256.Sum256(data)
-		sum = s[:]
-	default:
-		return errors.New("unknown digest algorithm")
-	}
-	if !strings.EqualFold(hex.EncodeToString(sum), expected) {
-		return fmt.Errorf("%s mismatch", algorithm)
-	}
-	return nil
 }

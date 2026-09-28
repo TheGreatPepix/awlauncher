@@ -12,8 +12,9 @@ import (
 	"path/filepath"
 	"strings"
 
+	"github.com/TheGreatPepix/awlauncher/internal/download"
 	"github.com/TheGreatPepix/awlauncher/internal/fileutil"
-	"github.com/TheGreatPepix/awlauncher/internal/launcher/catalog"
+	"github.com/TheGreatPepix/awlauncher/internal/httpx"
 )
 
 const DefaultBranch = "default"
@@ -69,12 +70,12 @@ func SyncBranch(client *http.Client, rel BranchRelease, mainRoot, root string, a
 		return prev, nil
 	}
 	log.Printf("Preparing %s %s (build %d) in %s...\n", branch, rel.Version, rel.Build, root)
-	data, err := catalog.Fetch(client, rel.ManifestURL, 64<<20)
+	data, err := httpx.Get(client, rel.ManifestURL, 64<<20)
 	if err != nil {
 		return BranchState{}, fmt.Errorf("file manifest: %w", err)
 	}
 	if rel.ManifestSHA256 != "" {
-		if err := catalog.VerifyHexDigest(data, rel.ManifestSHA256, "sha256"); err != nil {
+		if err := download.VerifyHexDigest(data, rel.ManifestSHA256, "sha256"); err != nil {
 			return BranchState{}, fmt.Errorf("file manifest: %w", err)
 		}
 	}

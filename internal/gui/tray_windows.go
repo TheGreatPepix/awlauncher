@@ -7,7 +7,7 @@ import (
 	"time"
 
 	"fyne.io/systray"
-	"github.com/TheGreatPepix/awlauncher/internal/appicon"
+	"github.com/TheGreatPepix/awlauncher/internal/gui/appicon"
 	"github.com/TheGreatPepix/awlauncher/internal/gui/ui"
 )
 

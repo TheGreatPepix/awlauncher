@@ -8,7 +8,7 @@ import (
 	"strings"
 
 	"github.com/TheGreatPepix/awlauncher/internal/fileutil"
-	"github.com/TheGreatPepix/awlauncher/internal/launcher/platform"
+	"github.com/TheGreatPepix/awlauncher/internal/platform"
 )
 
 type uiPrefs struct {

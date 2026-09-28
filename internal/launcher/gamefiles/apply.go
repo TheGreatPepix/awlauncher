@@ -16,9 +16,8 @@ import (
 	"sync/atomic"
 	"time"
 
-	"github.com/TheGreatPepix/awlauncher/internal/launcher/catalog"
+	"github.com/TheGreatPepix/awlauncher/internal/download"
 	"github.com/TheGreatPepix/awlauncher/internal/progress"
-
 	"github.com/bodgit/sevenzip"
 	"github.com/go-deltasync/vcdiff"
 )
@@ -33,7 +32,7 @@ func loadManifest(payload string, patch patchInfo) (Manifest, error) {
 
 func parsePatchManifest(compressed []byte, patch patchInfo) (Manifest, error) {
 	var manifest Manifest
-	if err := catalog.VerifyHexDigest(compressed, patch.ManifestSHA, "sha256"); err != nil {
+	if err := download.VerifyHexDigest(compressed, patch.ManifestSHA, "sha256"); err != nil {
 		return manifest, err
 	}
 	gz, err := gzip.NewReader(strings.NewReader(string(compressed)))

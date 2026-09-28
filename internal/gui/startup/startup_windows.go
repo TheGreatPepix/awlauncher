@@ -2,9 +2,9 @@ package startup
 
 import (
 	"errors"
-	"github.com/TheGreatPepix/awlauncher/internal/launcher/update"
 	"strings"
 
+	"github.com/TheGreatPepix/awlauncher/internal/gui/update"
 	"golang.org/x/sys/windows/registry"
 )
 

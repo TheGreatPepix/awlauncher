@@ -5,8 +5,8 @@ import (
 	"net/http"
 	"time"
 
+	"github.com/TheGreatPepix/awlauncher/internal/gui/update"
 	"github.com/TheGreatPepix/awlauncher/internal/launcher"
-	"github.com/TheGreatPepix/awlauncher/internal/launcher/update"
 )
 
 func (g *App) updateSelf() {

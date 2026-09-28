@@ -12,7 +12,7 @@ import (
 
 	"github.com/TheGreatPepix/awlauncher/internal/launcher"
 	"github.com/TheGreatPepix/awlauncher/internal/launcher/config"
-	"github.com/TheGreatPepix/awlauncher/internal/launcher/platform"
+	"github.com/TheGreatPepix/awlauncher/internal/platform"
 	"github.com/TheGreatPepix/awlauncher/internal/progress"
 )
 

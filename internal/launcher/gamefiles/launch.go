@@ -6,7 +6,7 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/TheGreatPepix/awlauncher/internal/launcher/catalog"
+	"github.com/TheGreatPepix/awlauncher/internal/launcher/vkplay"
 )
 
 type LaunchConfig struct {
@@ -65,7 +65,7 @@ func readLaunchConfig(last []byte) (LaunchConfig, error) {
 	var root struct {
 		Misc xmlElement `xml:"Misc"`
 	}
-	if err := catalog.ReadXML(last, &root); err != nil {
+	if err := vkplay.ReadXML(last, &root); err != nil {
 		return LaunchConfig{}, fmt.Errorf("last.xml: %w", err)
 	}
 	misc := func(name string) string { return attrValue(root.Misc.Attrs, name) }

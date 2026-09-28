@@ -9,7 +9,7 @@ import (
 	"github.com/TheGreatPepix/awlauncher/internal/launcher/config"
 	"github.com/TheGreatPepix/awlauncher/internal/launcher/fxid"
 	"github.com/TheGreatPepix/awlauncher/internal/launcher/gamefiles"
-	"github.com/TheGreatPepix/awlauncher/internal/launcher/platform"
+	"github.com/TheGreatPepix/awlauncher/internal/platform"
 )
 
 var errNotAFolder = errors.New("Enter a full path on an existing drive, like D:\\Games\\Armored Warfare.")

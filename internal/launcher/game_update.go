@@ -7,10 +7,10 @@ import (
 	"strings"
 	"time"
 
-	"github.com/TheGreatPepix/awlauncher/internal/launcher/catalog"
 	"github.com/TheGreatPepix/awlauncher/internal/launcher/config"
 	"github.com/TheGreatPepix/awlauncher/internal/launcher/fxid"
 	"github.com/TheGreatPepix/awlauncher/internal/launcher/gamefiles"
+	"github.com/TheGreatPepix/awlauncher/internal/launcher/vkplay"
 )
 
 func (s *Session) UpdateClient(c gamefiles.Client) error {
@@ -29,7 +29,7 @@ func (s *Session) updateVK(root string) error {
 	if err != nil {
 		return err
 	}
-	patches, latest, err := catalog.LatestPatches(&http.Client{Timeout: 90 * time.Second}, g.Build)
+	patches, latest, err := vkplay.LatestPatches(&http.Client{Timeout: 90 * time.Second}, g.Build)
 	if err != nil {
 		return fmt.Errorf("update check: %w", err)
 	}
