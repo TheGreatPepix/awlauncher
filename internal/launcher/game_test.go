@@ -5,9 +5,12 @@ import (
 	"os"
 	"path/filepath"
 	"testing"
+
+	"github.com/TheGreatPepix/awlauncher/internal/launcher/config"
+	"github.com/TheGreatPepix/awlauncher/internal/launcher/gamefiles"
 )
 
-func writeBranchState(t *testing.T, dir string, s branchState) {
+func writeBranchState(t *testing.T, dir string, s gamefiles.BranchState) {
 	t.Helper()
 	data, err := json.Marshal(s)
 	if err != nil {
@@ -15,76 +18,37 @@ func writeBranchState(t *testing.T, dir string, s branchState) {
 	}
 	writeTree(t, dir, map[string][]byte{"-gup-/awlauncher/branch.json": data})
 }
-
 func gameSession(t *testing.T, root string, answer bool) *session {
 	t.Helper()
 	t.Setenv("LOCALAPPDATA", t.TempDir())
 	return &session{
 		p:     prompter{confirm: func(string, bool) bool { return answer }, ask: func(string) string { return "" }},
-		cfg:   newConfigStore(launcherConfig{Game: root}),
+		cfg:   config.NewStore(config.Config{Game: root}),
 		found: &foundGame{},
 	}
 }
-
-func TestInstalledClientsFindsBranchesNextToTheGame(t *testing.T) {
-	parent := t.TempDir()
-	root := filepath.Join(parent, "Armored Warfare")
-	writeTree(t, root, map[string][]byte{"-gup-/last.xml": []byte(`<Manifest Build="442"/>`)})
-	writeBranchState(t, root, branchState{Branch: fxDefaultBranch, Version: "0.566.1"})
-	writeBranchState(t, branchInstallDir(root, "SuperTest"), branchState{Branch: "SuperTest", Version: "0.565.1"})
-	writeBranchState(t, filepath.Join(parent, "Armored Warfare copy"), branchState{Branch: "SuperTest"})
-	writeTree(t, filepath.Join(parent, "Armored Warfare Mods"), map[string][]byte{"a.txt": []byte("x")})
-
-	got := installedClients(root)
-	if len(got) != 3 || got[0].Kind != clientVK || got[0].Version != "build 442" || got[1].Kind != clientFX || got[1].Version != "0.566.1" ||
-		got[2].Kind != clientBranch || got[2].Branch != "SuperTest" || got[2].Dir != branchInstallDir(root, "SuperTest") {
-		t.Fatalf("clients = %+v", got)
-	}
-}
-
 func TestConfiguredClientFolders(t *testing.T) {
 	parent := t.TempDir()
 	vk := filepath.Join(parent, "VK")
 	fx := filepath.Join(parent, "FX")
 	branch := filepath.Join(parent, "Other drive", "SuperTest")
 	writeTree(t, vk, map[string][]byte{"-gup-/last.xml": []byte(`<Manifest Build="442"/>`)})
-	writeBranchState(t, vk, branchState{Branch: fxDefaultBranch, Version: "shared"})
-	writeBranchState(t, fx, branchState{Branch: fxDefaultBranch, Version: "separate"})
-	writeBranchState(t, branch, branchState{Branch: "SuperTest", Version: "branch"})
-	cfg := launcherConfig{Game: vk, FXGame: fx, BranchGames: map[string]string{"supertest": branch}}
-	if got := cfg.branchDir("SuperTest"); got != branch {
+	writeBranchState(t, vk, gamefiles.BranchState{Branch: gamefiles.DefaultBranch, Version: "stale"})
+	writeBranchState(t, fx, gamefiles.BranchState{Branch: gamefiles.DefaultBranch, Version: "main"})
+	writeBranchState(t, branch, gamefiles.BranchState{Branch: "SuperTest", Version: "branch"})
+	cfg := config.Config{Game: vk, FXGame: fx, BranchGames: map[string]string{"supertest": branch}}
+	if got := cfg.BranchDir("SuperTest"); got != branch {
 		t.Fatalf("custom branch folder = %q", got)
 	}
-	shared := installedConfiguredClients(cfg)
-	if len(shared) != 3 || shared[0].Kind != clientVK || shared[1].Dir != vk || shared[2].Dir != branch {
-		t.Fatalf("shared clients = %+v", shared)
-	}
-	cfg.SeparateMain = true
-	separate := installedConfiguredClients(cfg)
-	if len(separate) != 3 || separate[0].Kind != clientVK || separate[1].Dir != fx || separate[2].Dir != branch {
-		t.Fatalf("separate clients = %+v", separate)
+	clients := installedConfiguredClients(cfg)
+	if len(clients) != 3 || clients[0].Kind != gamefiles.KindVK || clients[0].Dir != vk || clients[1].Kind != gamefiles.KindFX || clients[1].Dir != fx || clients[2].Dir != branch {
+		t.Fatalf("clients = %+v", clients)
 	}
 	cfg.BranchGames = nil
-	if got := cfg.branchDir("SuperTest"); got != branchInstallDir(fx, "SuperTest") {
-		t.Fatalf("default branch folder in separate mode = %q", got)
+	if got := cfg.BranchDir("SuperTest"); got != gamefiles.BranchDir(fx, "SuperTest") {
+		t.Fatalf("default branch folder = %q", got)
 	}
 }
-
-func TestChangingMainModeKeepsInstalledBranchFolder(t *testing.T) {
-	root := filepath.Join(t.TempDir(), "Armored Warfare")
-	branch := branchInstallDir(root, "SuperTest")
-	writeBranchState(t, branch, branchState{Branch: "SuperTest"})
-	cfg := launcherConfig{Game: root}
-	cfg.setSeparateMain(true)
-	if got := cfg.branchDir("SuperTest"); got != branch {
-		t.Fatalf("branch moved from %q to %q", branch, got)
-	}
-	clients := installedConfiguredClients(cfg)
-	if len(clients) != 1 || clients[0].Dir != branch {
-		t.Fatalf("installed branch after mode change = %+v", clients)
-	}
-}
-
 func TestDescribeGameWithoutInstalledClientsHasArray(t *testing.T) {
 	info := describeGame(t.TempDir())
 	data, err := json.Marshal(info)
@@ -99,7 +63,6 @@ func TestDescribeGameWithoutInstalledClientsHasArray(t *testing.T) {
 		t.Fatalf("clients must be an array for the UI, got %s", event["clients"])
 	}
 }
-
 func TestRemoveClientDirKeepsFilesItDoesNotKnow(t *testing.T) {
 	dir := filepath.Join(t.TempDir(), "Armored Warfare SuperTest")
 	writeTree(t, dir, map[string][]byte{
@@ -108,7 +71,7 @@ func TestRemoveClientDirKeepsFilesItDoesNotKnow(t *testing.T) {
 		"user.cfg":            []byte("cfg"),
 		"screenshots/one.png": []byte("png"),
 	})
-	writeBranchState(t, dir, branchState{Branch: "SuperTest", Files: []fxFile{{Path: "bin64/game.exe"}, {Path: "data/a.pak"}}})
+	writeBranchState(t, dir, gamefiles.BranchState{Branch: "SuperTest", Files: []gamefiles.BranchFile{{Path: "bin64/game.exe"}, {Path: "data/a.pak"}}})
 
 	if err := gameSession(t, "", false).removeClientDir(dir); err != nil {
 		t.Fatal(err)
@@ -129,16 +92,18 @@ func TestRemoveClientDirKeepsFilesItDoesNotKnow(t *testing.T) {
 		t.Fatal("the folder is left after the user agreed to delete it")
 	}
 }
-
 func TestUninstallForgetsTheGameFolder(t *testing.T) {
 	root := filepath.Join(t.TempDir(), "Armored Warfare")
 	writeTree(t, root, map[string][]byte{"data/a.pak": []byte("pak")})
-	writeBranchState(t, root, branchState{Branch: fxDefaultBranch, Version: "0.566.1", Files: []fxFile{{Path: "data/a.pak"}}})
-	branch := branchInstallDir(root, "SuperTest")
+	writeBranchState(t, root, gamefiles.BranchState{Branch: gamefiles.DefaultBranch, Version: "0.566.1", Files: []gamefiles.BranchFile{{Path: "data/a.pak"}}})
+	branch := gamefiles.BranchDir(root, "SuperTest")
 	writeTree(t, branch, map[string][]byte{"data/b.pak": []byte("pak")})
-	writeBranchState(t, branch, branchState{Branch: "SuperTest", Files: []fxFile{{Path: "data/b.pak"}}})
+	writeBranchState(t, branch, gamefiles.BranchState{Branch: "SuperTest", Files: []gamefiles.BranchFile{{Path: "data/b.pak"}}})
 
-	s := gameSession(t, root, true)
+	s := gameSession(t, "", true)
+	if err := s.cfg.Update(func(c *config.Config) { c.FXGame = root }); err != nil {
+		t.Fatal(err)
+	}
 	if err := s.uninstallGame(); err != nil {
 		t.Fatal(err)
 	}
@@ -147,65 +112,39 @@ func TestUninstallForgetsTheGameFolder(t *testing.T) {
 			t.Fatalf("%s is left", dir)
 		}
 	}
-	if s.cfg.get().Game != "" {
+	if s.cfg.Get().FXGame != "" {
 		t.Fatal("the game folder is still set")
 	}
 }
-
 func TestRemoveMainClientKeepsOtherFoldersAndConfiguredPaths(t *testing.T) {
 	parent := t.TempDir()
 	vk := filepath.Join(parent, "VK")
 	fx := filepath.Join(parent, "FX")
-	branch := branchInstallDir(fx, "SuperTest")
+	branch := gamefiles.BranchDir(fx, "SuperTest")
 	writeTree(t, vk, map[string][]byte{"-gup-/last.xml": []byte(`<Manifest Build="442"/>`)})
-	writeBranchState(t, fx, branchState{Branch: fxDefaultBranch, Version: "main"})
-	writeBranchState(t, branch, branchState{Branch: "SuperTest", Version: "test"})
+	writeBranchState(t, fx, gamefiles.BranchState{Branch: gamefiles.DefaultBranch, Version: "main"})
+	writeBranchState(t, branch, gamefiles.BranchState{Branch: "SuperTest", Version: "test"})
 	s := gameSession(t, vk, true)
-	if err := s.cfg.update(func(c *launcherConfig) { c.SeparateMain = true; c.FXGame = fx }); err != nil {
+	if err := s.cfg.Update(func(c *config.Config) { c.FXGame = fx }); err != nil {
 		t.Fatal(err)
 	}
-	fxClient, err := s.findClient(clientFX, "")
+	fxClient, err := s.findClient(gamefiles.KindFX, "")
 	if err != nil {
 		t.Fatal(err)
 	}
 	if err := s.removeMainClient(fxClient); err != nil {
 		t.Fatal(err)
 	}
-	if got := installedConfiguredClients(s.cfg.get()); len(got) != 2 || got[0].Kind != clientVK || got[1].Kind != clientBranch {
+	if got := installedConfiguredClients(s.cfg.Get()); len(got) != 2 || got[0].Kind != gamefiles.KindVK || got[1].Kind != gamefiles.KindBranch {
 		t.Fatalf("clients after removing FX main = %+v", got)
 	}
-	if s.cfg.get().FXGame != fx || s.cfg.get().Game != vk {
+	if s.cfg.Get().FXGame != fx || s.cfg.Get().Game != vk {
 		t.Fatal("configured install paths were lost")
 	}
-	if _, err := os.Stat(branchStatePath(branch)); err != nil {
+	if _, err := os.Stat(filepath.Join(branch, "-gup-", "awlauncher", "branch.json")); err != nil {
 		t.Fatal("closed branch was removed:", err)
 	}
 }
-
-func TestRemoveSharedMainClientRemovesBothMainClientsButKeepsBranch(t *testing.T) {
-	root := filepath.Join(t.TempDir(), "Armored Warfare")
-	writeTree(t, root, map[string][]byte{"-gup-/last.xml": []byte(`<Manifest Build="442"/>`)})
-	writeBranchState(t, root, branchState{Branch: fxDefaultBranch, Version: "main"})
-	branch := branchInstallDir(root, "SuperTest")
-	writeBranchState(t, branch, branchState{Branch: "SuperTest", Version: "test"})
-	s := gameSession(t, root, true)
-	var question string
-	s.p.confirm = func(q string, _ bool) bool { question = q; return true }
-	fxClient, err := s.findClient(clientFX, "")
-	if err != nil {
-		t.Fatal(err)
-	}
-	if err := s.removeMainClient(fxClient); err != nil {
-		t.Fatal(err)
-	}
-	if question != "Remove VK Play and FX ID main branch from "+root+"?" {
-		t.Fatalf("confirmation = %q", question)
-	}
-	if got := installedConfiguredClients(s.cfg.get()); len(got) != 1 || got[0].Kind != clientBranch {
-		t.Fatalf("clients after removing shared main folder = %+v", got)
-	}
-}
-
 func TestClearDownloadsRemovesPatchCache(t *testing.T) {
 	root := t.TempDir()
 	writeTree(t, root, map[string][]byte{"-gup-/awlauncher-cache/payload-1-2/a.7z": []byte("patch"), "-gup-/last.xml": []byte("x")})
@@ -220,16 +159,24 @@ func TestClearDownloadsRemovesPatchCache(t *testing.T) {
 	}
 }
 
-func TestRemovableFolderProtectsSystemFolders(t *testing.T) {
-	home := t.TempDir()
-	t.Setenv("USERPROFILE", home)
-	t.Setenv("HOME", home)
-	for _, dir := range []string{`C:\`, home, filepath.Join(home, "Documents"), filepath.Dir(home)} {
-		if removableFolder(dir) {
-			t.Errorf("%s may be deleted", dir)
+func writeTree(t *testing.T, root string, files map[string][]byte) {
+	t.Helper()
+	for name, data := range files {
+		p := filepath.Join(root, filepath.FromSlash(name))
+		if err := os.MkdirAll(filepath.Dir(p), 0755); err != nil {
+			t.Fatal(err)
+		}
+		if err := os.WriteFile(p, data, 0644); err != nil {
+			t.Fatal(err)
 		}
 	}
-	if !removableFolder(filepath.Join(home, "Games", "Armored Warfare")) {
-		t.Error("a game folder may not be deleted")
+}
+
+func readFile(t *testing.T, path string) string {
+	t.Helper()
+	data, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatal(err)
 	}
+	return string(data)
 }

@@ -7,6 +7,7 @@ import (
 	"os"
 	"path/filepath"
 
+	"github.com/TheGreatPepix/awlauncher/internal/launcher/platform"
 	"github.com/jchv/go-webview2/pkg/edge"
 )
 
@@ -53,11 +54,11 @@ func (g *guiApp) signInCommand(cmd string) {
 	}
 	switch cmd {
 	case "signinOpen":
-		if err := openBrowser(s.URL); err != nil {
+		if err := platform.OpenBrowser(s.URL); err != nil {
 			fmt.Println("Error:", err)
 		}
 	case "signinFresh":
-		if err := openBrowser(s.FreshURL); err != nil {
+		if err := platform.OpenBrowser(s.FreshURL); err != nil {
 			fmt.Println("Error:", err)
 		} else {
 			fmt.Println("Sign in with the other account in the browser; the launcher keeps waiting.")
@@ -83,7 +84,7 @@ func (g *guiApp) openSignInWindow(s *signInState) error {
 	setAppIcon(win)
 	web := edge.NewChromium()
 	web.MessageCallback = func(message string) { g.signInMessage(s, message) }
-	if dir, err := launcherDir(); err == nil {
+	if dir, err := platform.DataDir(); err == nil {
 		web.DataPath = filepath.Join(dir, "WebView2")
 	}
 	if !web.Embed(win.hwnd) {

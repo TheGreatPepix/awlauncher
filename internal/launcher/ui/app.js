@@ -10,7 +10,6 @@ const state = {
   lastId: "",
   game: "",
   fxGame: "",
-  separateMain: false,
   allowMods: false,
   suggestedGame: "",
   data: "",
@@ -20,10 +19,8 @@ const state = {
   availableClients: null,
   availableClientsFailed: false,
   availableVKFailed: false,
-  filter: "all",
   page: "home",
   progress: { active: false },
-  lastLine: "",
   prompt: null,
   version: "",
   update: null,
@@ -59,8 +56,8 @@ window.aw = {
       case "browsed": onBrowsed(ev); break;
       case "folderInfo": onFolderInfo(ev); break;
       case "done": onDone(ev); break;
-      case "notice": snackbar(tb(ev.message)); break;
-      case "clipboard": snackbar(t(ev.ok ? "Logs copied" : "Could not copy")); break;
+      case "notice": toast(tb(ev.message), ev.kind || "info"); break;
+      case "clipboard": toast(t(ev.ok ? "Logs copied" : "Could not copy")); break;
       case "game": state.running = ev.running; renderStatus(); break;
       case "signin": renderSignIn(ev); break;
       case "gameInfo": state.gameInfo = ev; renderGame(); break;
@@ -124,6 +121,8 @@ const HUES = [
   { name: "Mint", h: 165 },
   { name: "Sky", h: 240 },
 ];
+function validHue(h) { return Number.isFinite(h) && h >= 0 && h < 360 ? Math.round(h) : 300; }
+
 const store = {
   get(k, d) { try { return localStorage.getItem(k) ?? d; } catch { return d; } },
   set(k, v) { try { localStorage.setItem(k, v); } catch {} },
@@ -132,7 +131,7 @@ const darkQuery = matchMedia("(prefers-color-scheme: dark)");
 
 const prefs = {
   theme: host ? "system" : store.get("aw.theme", "system"),
-  hue: host ? 300 : Number(store.get("aw.hue", "300")) || 300,
+  hue: host ? 300 : validHue(Number(store.get("aw.hue", "300"))),
   lang: host ? "auto" : store.get("aw.lang", "auto"),
 };
 
@@ -174,6 +173,7 @@ function applyTheme() {
   root.style.setProperty("--h", hue);
   for (const b of $("theme-mode").children) b.classList.toggle("on", b.dataset.theme === mode);
   for (const s of $("swatches").children) s.classList.toggle("on", Number(s.dataset.hue) === hue);
+  $("hue-slider").value = hue;
   const css = getComputedStyle(document.body);
   const dark = mode === "dark" || (mode === "system" && darkQuery.matches);
   send({ cmd: "theme", dark, caption: toHex(css.backgroundColor), text: toHex(css.color) });
@@ -194,6 +194,10 @@ function setupTheme() {
     const s = el("button", { class: "swatch", title: name, "data-hue": h, style: `--sh:${h}`, onclick: () => setPrefs({ hue: h }) }, icon("check"));
     $("swatches").append(s);
   }
+  const slider = $("hue-slider");
+  slider.style.setProperty("--hue-track", `linear-gradient(to right, ${Array.from({ length: 13 }, (_, i) => `oklch(0.6 0.14 ${i * 30})`).join(", ")})`);
+  slider.addEventListener("input", () => { prefs.hue = validHue(Number(slider.value)); applyTheme(); });
+  slider.addEventListener("change", () => setPrefs({ hue: validHue(Number(slider.value)) }));
   for (const b of $("theme-mode").children) b.addEventListener("click", () => setPrefs({ theme: b.dataset.theme }));
   darkQuery.addEventListener("change", applyTheme);
   applyTheme();
@@ -204,7 +208,6 @@ function showPage(page) {
   state.page = page;
   for (const b of document.querySelectorAll(".nav-item")) b.classList.toggle("on", b.dataset.page === page);
   for (const p of document.querySelectorAll(".page")) p.classList.toggle("on", p.id === "page-" + page);
-  $("fab").classList.toggle("away", page !== "home");
   if (page === "game") { send({ cmd: "gameInfo" }); send({ cmd: "availableClients" }); }
   if (page === "settings") $("settings-dot").classList.remove("on");
   if (page === "activity") {
@@ -223,7 +226,6 @@ function onState(ev) {
   if (!state.accounts.some((a) => a.id === state.selected)) state.selected = last || (state.accounts[0] || {}).id || "";
   state.game = ev.game;
   state.fxGame = ev.fxGame || "";
-  state.separateMain = !!ev.separateMain;
   state.allowMods = !!ev.allowMods;
   state.suggestedGame = ev.suggestedGame || "";
   state.data = ev.data;
@@ -233,25 +235,15 @@ function onState(ev) {
   state.autostart = ev.autostart || "off";
   if (ev.systemLang) i18n.system = ev.systemLang;
   if (typeof ev.log === "string") { $("log").textContent = ""; appendLog(ev.log, true); }
-  if (ev.prefs) { prefs.theme = ev.prefs.theme || "system"; prefs.hue = ev.prefs.hue || 300; prefs.lang = ev.prefs.lang || "auto"; applyTheme(); }
+  if (ev.prefs) { prefs.theme = ev.prefs.theme || "system"; prefs.hue = validHue(ev.prefs.hue); prefs.lang = ev.prefs.lang || "auto"; applyTheme(); }
   if (ev.prefs || ev.systemLang) applyLanguage();
   renderAll();
 }
 
 function renderFolders() {
   for (const b of $("mods-mode").children) b.classList.toggle("on", b.dataset.mode === (state.allowMods ? "on" : "off"));
-  $("game-folder-title").textContent = t(state.separateMain ? "VK Play folder" : "Main game folder");
-  for (const b of $("main-client-mode").children) b.classList.toggle("on", b.dataset.mode === (state.separateMain ? "separate" : "shared"));
-  $("fx-folder-row").hidden = !state.separateMain;
-  $("fx-folder").textContent = state.fxGame || t("Choose a folder");
-  $("fx-change").textContent = t(state.fxGame ? "Change…" : "Choose…");
-  $("game-folder").textContent = state.game || (state.suggestedGame ? t("Suggested: {path}", { path: state.suggestedGame }) : t("Chosen on the first start"));
-  $("game-change").textContent = t(state.game ? "Change…" : "Choose…");
   $("data-folder").textContent = state.data || "%LOCALAPPDATA%\\AWLauncher";
-  $("game-open").disabled = !state.game;
 }
-
-function visible(a) { return state.filter === "all" || a.provider === state.filter; }
 
 function cookiePath(size, lobes, depth) {
   const r = size / 2, pts = [];
@@ -278,12 +270,12 @@ function avatar(a) {
 function renderAccounts() {
   const tiles = $("tiles");
   tiles.textContent = "";
-  const shown = state.accounts.filter(visible);
+  const shown = state.accounts;
   if (!shown.some((a) => a.id === state.selected) && shown.length) state.selected = shown[0].id;
   for (const a of state.accounts) {
     const op = accountOp(a.id);
     const tile = el("div", {
-      class: "tile state" + (a.id === state.selected ? " on" : "") + (visible(a) ? "" : " hidden") + (op ? " working" : ""),
+      class: "tile state" + (a.id === state.selected ? " on" : "") + (op ? " working" : ""),
       role: "button", tabindex: "0", title: op ? tb(op.title) : a.name,
       onclick: () => select(a.id),
       ondblclick: () => { select(a.id); play(); },
@@ -335,61 +327,78 @@ function renderHero() {
   else if (a) chip = `${a.name} · ${a.service}`;
   $("hero-chip").textContent = chip;
   $("close-game").hidden = !state.running;
-  $("game-change").disabled = !!game;
   renderGame();
 }
 
 const CLIENT_NAMES = { vkplay: "VK Play", fxid: "FX ID main branch" };
 
+function clientName(c) { return CLIENT_NAMES[c.kind] ? t(CLIENT_NAMES[c.kind]) : "FX ID " + c.branch; }
+
+function clientRows(info) {
+  const rows = [];
+  const add = (c) => {
+    const branch = c.branch || (c.kind === "fxid" ? "default" : "");
+    let row = rows.find((r) => r.kind === c.kind && (c.kind !== "branch" || r.branch.toLowerCase() === branch.toLowerCase()));
+    if (!row) rows.push(row = { kind: c.kind, branch });
+    if (c.dir) row.installed = c;
+    else if (c.version) row.available = c.version;
+    if (c.account && !row.account) row.account = c.account;
+  };
+  const vk = state.accounts.find((a) => a.provider === "vkplay");
+  const fx = state.accounts.filter((a) => a.provider === "fxid");
+  if (vk) add({ kind: "vkplay", account: vk.id });
+  if (fx.length) add({ kind: "fxid", account: fx[0].id });
+  for (const a of fx) if (a.branch && a.branch.toLowerCase() !== "default") add({ kind: "branch", branch: a.branch, account: a.id });
+  for (const c of state.availableClients || []) if (state.accounts.some((a) => a.id === c.account)) add(c);
+  for (const c of Array.isArray(info.clients) ? info.clients : []) add(c);
+  return rows;
+}
+
+function clientFolder(r, info) {
+  if (r.installed) return r.installed.dir;
+  if (r.kind === "vkplay") return state.game || state.suggestedGame;
+  if (r.kind === "fxid") return state.fxGame;
+  return info.branchPaths?.[r.branch.toLowerCase()] || (state.fxGame ? `${state.fxGame} ${r.branch}` : "");
+}
+
+function chooseClientFolder(r) {
+  if (r.kind === "vkplay") send({ cmd: "gameFolder" });
+  else if (r.kind === "fxid") send({ cmd: "fxFolder" });
+  else send({ cmd: "branchFolder", branch: r.branch });
+}
+
+function openClientMenu(anchor, r) {
+  const busy = !!gameOp();
+  const target = { value: r.kind, branch: r.kind === "fxid" ? "" : r.branch };
+  showMenu(anchor, [
+    menuItem("update", t("Check for updates"), () => send({ cmd: "updateClient", ...target }), null, busy),
+    menuItem("folder", t("Open folder"), () => send({ cmd: "openClientFolder", ...target })),
+    menuItem("edit", t("Change folder…"), () => chooseClientFolder(r), null, busy),
+    r.installed.downloads ? menuItem("clear", t("Delete downloaded patches ({size})", { size: formatBytes(r.installed.downloads) }), () => send({ cmd: "clearDownloads", ...target }), null, busy) : null,
+    el("hr"),
+    menuItem("delete", t("Remove client"), () => send({ cmd: r.kind === "branch" ? "removeBranch" : "removeMainClient", ...target }), "danger", busy),
+  ]);
+}
+
 function renderGame() {
   const info = state.gameInfo || { clients: [], dir: state.game, downloads: null, free: null };
-  const clients = Array.isArray(info.clients) ? info.clients : [];
   const busy = !!gameOp();
   const box = $("game-clients");
   box.textContent = "";
-  for (const c of clients) {
-    const name = CLIENT_NAMES[c.kind] ? t(CLIENT_NAMES[c.kind]) : "FX ID " + c.branch;
-    const sub = `${c.version} · ${c.dir}`;
+  const rows = clientRows(info);
+  for (const r of rows) {
+    const c = r.installed;
+    const folder = clientFolder(r, info);
+    const sub = c ? [c.version, c.dir, c.downloads ? t("patches {size}", { size: formatBytes(c.downloads) }).replace(/ /g, "\u00a0") : ""] : [t("Not installed"), r.available, folder];
+    const main = c
+      ? el("button", { class: "btn tonal", disabled: busy, title: t("Check every file and download the ones that differ"), onclick: () => send({ cmd: "verify", value: r.kind, branch: r.kind === "fxid" ? "" : r.branch }) }, icon("verify", "sm"), t("Check files"))
+      : el("button", { class: "btn tonal", disabled: busy || !r.account, onclick: () => send({ cmd: "downloadClient", account: r.account, value: r.kind, branch: r.branch }) }, t("Download"));
     box.append(el("div", { class: "list-item" },
-      icon(c.kind === "branch" ? "branch" : "globe", "lead"),
-      el("div", { class: "list-text" }, el("div", { class: "list-title", text: name }), el("div", { class: "list-sub", text: sub })),
-      c.kind === "branch" ? el("button", { class: "btn text", disabled: busy, onclick: () => send({ cmd: "branchFolder", branch: c.branch }) }, t("Folder…")) : null,
-      el("button", { class: "btn text", disabled: busy, onclick: () => send({ cmd: c.kind === "branch" ? "removeBranch" : "removeMainClient", value: c.kind, branch: c.branch || "" }) }, t("Remove")),
-      el("button", { class: "btn tonal", disabled: busy, title: t("Check every file and download the ones that differ"), onclick: () => send({ cmd: "verify", value: c.kind, branch: c.branch || "" }) }, icon("verify", "sm"), t("Check files"))));
-  }
-  const installed = (kind, branch) => clients.some((c) => c.kind === kind && (kind !== "branch" || c.branch.toLowerCase() === branch.toLowerCase()));
-  // Saved accounts provide immediate choices while the remote FX ID branch list loads.
-  const candidates = [];
-  const seen = new Set();
-  const add = (c) => {
-    const key = c.kind === "branch" ? `branch:${c.branch.toLowerCase()}` : c.kind;
-    if (seen.has(key)) {
-      const previous = candidates.find((item) => (item.kind === "branch" ? `branch:${item.branch.toLowerCase()}` : item.kind) === key);
-      if (c.version) previous.version = c.version;
-      return;
-    }
-    seen.add(key);
-    candidates.push(c);
-  };
-  for (const a of state.accounts) {
-    if (a.provider === "vkplay") add({ kind: "vkplay", account: a.id });
-    else if (a.provider === "fxid") {
-      add({ kind: "fxid", branch: "default", account: a.id });
-      if (a.branch && a.branch.toLowerCase() !== "default") add({ kind: "branch", branch: a.branch, account: a.id });
-    }
-  }
-  for (const c of state.availableClients || []) {
-    if (state.accounts.some((a) => a.id === c.account)) add(c);
-  }
-  const available = candidates.filter((c) => !installed(c.kind, c.branch || ""));
-  for (const c of available) {
-    const name = CLIENT_NAMES[c.kind] ? t(CLIENT_NAMES[c.kind]) : "FX ID " + c.branch;
-    box.append(el("div", { class: "list-item" },
-      icon(c.kind === "branch" ? "branch" : "globe", "lead"),
-      el("div", { class: "list-text" }, el("div", { class: "list-title", text: name }),
-        el("div", { class: "list-sub", text: [t("Available to download"), c.version, c.kind === "branch" ? info.branchPaths?.[c.branch.toLowerCase()] : ""].filter(Boolean).join(" · ") })),
-      c.kind === "branch" ? el("button", { class: "btn text", disabled: busy, onclick: () => send({ cmd: "branchFolder", branch: c.branch }) }, t("Folder…")) : null,
-      el("button", { class: "btn tonal", disabled: busy, onclick: () => send({ cmd: "downloadClient", account: c.account, value: c.kind, branch: c.branch || "" }) }, t("Download"))));
+      icon(r.kind === "branch" ? "branch" : "globe", "lead"),
+      el("div", { class: "list-text" }, el("div", { class: "list-title", text: clientName(r) }), el("div", { class: "list-sub", text: sub.filter(Boolean).join(" · ") })),
+      c ? null : el("button", { class: "btn text", disabled: busy, onclick: () => chooseClientFolder(r) }, t("Folder…")),
+      main,
+      c ? el("button", { class: "icon-btn", title: t("More"), onclick: (e) => { e.stopPropagation(); openClientMenu(e.currentTarget, r); } }, icon("more")) : null));
   }
   if (state.availableClientsFailed) {
     box.append(el("div", { class: "list-item" }, icon("info", "lead"),
@@ -401,14 +410,11 @@ function renderGame() {
       el("div", { class: "list-text" }, el("div", { class: "list-sub", text: t("Could not load the VK Play catalog.") })),
       el("button", { class: "btn text", onclick: () => send({ cmd: "availableClients" }) }, t("Retry"))));
   }
-  if (!clients.length && !available.length && !state.availableClientsFailed && !state.availableVKFailed) {
+  if (!rows.length) {
     box.append(el("div", { class: "list-item" }, icon("info", "lead"),
-      el("div", { class: "list-text" }, el("div", { class: "list-title", text: t("Not installed") }),
-        el("div", { class: "list-sub", text: state.accounts.length ? t("Loading available clients…") : t("Add an account to download its client.") }))));
+      el("div", { class: "list-text" }, el("div", { class: "list-title", text: t("No clients yet") }),
+        el("div", { class: "list-sub", text: t("Add a VK Play or FX ID account to see its client here.") }))));
   }
-  $("game-downloads").textContent = !state.gameInfo ? t("Loading game details…") : info.dir ? t("{downloads} · {free} free on the drive", { downloads: formatBytes(info.downloads), free: formatBytes(info.free) }) : t("No game folder yet");
-  $("game-clear").disabled = busy || !info.downloads;
-  $("game-uninstall").disabled = busy || !clients.length;
 }
 
 const AUTOSTART_TEXT = {
@@ -460,7 +466,7 @@ function checkUpdate() {
 }
 
 function applyUpdate() {
-  if (busy()) { snackbar(t("Wait until {op} finishes", { op: opsTitle() })); return; }
+  if (busy()) { toast(t("Wait until {op} finishes", { op: opsTitle() })); return; }
   send({ cmd: "applyUpdate" });
 }
 
@@ -470,9 +476,9 @@ function onUpdate(ev) {
   renderUpdate();
   if (ev.available && state.page !== "settings") $("settings-dot").classList.add("on");
   if (ev.quiet) return;
-  if (ev.error) { snackbar(t("Could not check for updates: {error}", { error: ev.error })); return; }
+  if (ev.error) { toast(t("Could not check for updates: {error}", { error: ev.error })); return; }
   if (!ev.available) {
-    snackbar(isRelease(ev.current) ? t("AWLauncher {version} is up to date", { version: ev.current }) : t("Development build; the latest release is {latest}", { latest: ev.latest }));
+    toast(isRelease(ev.current) ? t("AWLauncher {version} is up to date", { version: ev.current }) : t("Development build; the latest release is {latest}", { latest: ev.latest }));
     return;
   }
   const notes = (ev.notes || "").replace(/\r/g, "");
@@ -504,19 +510,14 @@ function play() {
 }
 
 
-function openMenu(anchor, a) {
+function menuItem(name, label, fn, cls, disabled) {
+  return el("button", { class: cls, disabled, onclick: () => { closeMenu(); fn(); } }, icon(name), el("span", { text: label }));
+}
+
+function showMenu(anchor, items) {
   const menu = $("menu");
   menu.textContent = "";
-  const taken = !!accountOp(a.id);
-  const item = (name, label, fn, cls, disabled) => el("button", { class: cls, disabled, onclick: () => { closeMenu(); fn(); } }, icon(name), el("span", { text: label }));
-  menu.append(item("play", t("Play"), () => { select(a.id); play(); }, null, !canPlay(a)));
-  if (!a.last) menu.append(item("pin", t("Make main"), () => { select(a.id); send({ cmd: "pin", account: a.id }); }));
-  if (a.provider === "fxid") {
-    menu.append(item("branch", t("Client branches"), () => send({ cmd: "branches", account: a.id }), null, taken));
-    menu.append(item("key", t("Activate key"), () => send({ cmd: "key", account: a.id }), null, taken));
-  }
-  menu.append(item("edit", t("Rename"), () => showRename(a)));
-  menu.append(el("hr"), item("delete", t("Remove"), () => confirmRemove(a), "danger", taken));
+  for (const item of items) if (item) menu.append(item);
   const r = anchor.getBoundingClientRect();
   menu.classList.add("on");
   const w = menu.offsetWidth, h = menu.offsetHeight;
@@ -524,6 +525,19 @@ function openMenu(anchor, a) {
   menu.style.top = (r.bottom + h + 8 > innerHeight ? r.top - h - 4 : r.bottom + 4) + "px";
 }
 function closeMenu() { $("menu").classList.remove("on"); }
+
+function openMenu(anchor, a) {
+  const taken = !!accountOp(a.id);
+  showMenu(anchor, [
+    menuItem("play", t("Play"), () => { select(a.id); play(); }, null, !canPlay(a)),
+    !a.last ? menuItem("pin", t("Make main"), () => { select(a.id); send({ cmd: "pin", account: a.id }); }) : null,
+    a.provider === "fxid" ? menuItem("branch", t("Client branches"), () => send({ cmd: "branches", account: a.id }), null, taken) : null,
+    a.provider === "fxid" ? menuItem("key", t("Activate key"), () => send({ cmd: "key", account: a.id }), null, taken) : null,
+    menuItem("edit", t("Rename"), () => showRename(a)),
+    el("hr"),
+    menuItem("delete", t("Remove"), () => confirmRemove(a), "danger", taken),
+  ]);
+}
 
 
 let dialogKeys = null;
@@ -863,36 +877,33 @@ function onDone(ev) {
   if (state.page === "game") { send({ cmd: "gameInfo" }); send({ cmd: "availableClients" }); }
   switch (ev.status) {
     case "error":
-      whenDialogFree(() => openDialog({
-        iconName: "error", iconClass: "error",
-        op: tb(ev.title),
-        title: t("Something went wrong"),
-        body: [el("p", { text: ev.message })],
-        actions: [
-          { label: t("Logs"), onClick: () => { closeDialog(); showPage("activity"); } },
-          { label: t("OK"), kind: "filled", primary: true, onClick: closeDialog },
-        ],
-        onEscape: closeDialog,
-      }));
+      toast(ev.message, "error", { title: tb(ev.title), action: { label: t("Logs"), onClick: () => showPage("activity") } });
       break;
-    case "launched": snackbar(t("Game started. AWLauncher is in the notification area.")); break;
-    case "cancelled": snackbar(t("Cancelled")); break;
+    case "launched": toast(t("Game started. AWLauncher is in the notification area.")); break;
+    case "cancelled": toast(t("Cancelled")); break;
     case "ok":
-      if (ev.title.startsWith("Uninstalling")) snackbar(t("The game is uninstalled"));
-      else if (ev.title.startsWith("Signing in")) snackbar(t("Account added"));
-      else if (ev.title.startsWith("Removing VK Play") || ev.title.startsWith("Removing FX ID")) snackbar(t("Client removed"));
-      else if (ev.title.startsWith("Removing")) snackbar(t("Account removed"));
-      else if (ev.title === "Updating AWLauncher") snackbar(t("The update is installed. It takes effect on the next start."));
+      if (ev.message) toast(tb(ev.message), "ok");
+      else if (ev.title.startsWith("Signing in")) toast(t("Account added"), "ok");
+      else if (ev.title.startsWith("Removing VK Play") || ev.title.startsWith("Removing FX ID")) toast(t("Client removed"), "ok");
+      else if (ev.title.startsWith("Removing")) toast(t("Account removed"), "ok");
+      else if (ev.title === "Updating AWLauncher") toast(t("The update is installed. It takes effect on the next start."), "ok");
       break;
   }
 }
 
-let snackTimer = 0;
-function snackbar(text) {
-  $("snackbar-text").textContent = text;
-  $("snackbar").classList.add("on");
-  clearTimeout(snackTimer);
-  snackTimer = setTimeout(() => $("snackbar").classList.remove("on"), 4000);
+const TOAST_ICONS = { info: "info", ok: "check", error: "error" };
+
+function toast(text, kind = "info", opts = {}) {
+  const box = $("toasts");
+  const node = el("div", { class: "toast " + kind, role: kind === "error" ? "alert" : "status" });
+  const close = () => { node.classList.remove("on"); setTimeout(() => node.remove(), 250); };
+  const body = el("div", { class: "toast-text" }, opts.title ? el("div", { class: "toast-title", text: opts.title }) : null, el("div", { text }));
+  if (opts.action) body.append(el("button", { class: "btn text", onclick: () => { close(); opts.action.onClick(); } }, opts.action.label));
+  node.append(icon(TOAST_ICONS[kind] || "info"), body, el("button", { class: "toast-close", title: t("Close"), onclick: close }, icon("close", "sm")));
+  box.append(node);
+  while (box.children.length > 4) box.firstChild.remove();
+  requestAnimationFrame(() => node.classList.add("on"));
+  setTimeout(close, kind === "error" ? 12000 : 5000);
 }
 
 
@@ -914,13 +925,11 @@ function appendLog(text, initial) {
     }
     span.append(line.slice(at) + "\n");
     frag.append(span);
-    if (line.trim()) state.lastLine = line.trim();
   }
   log.append(frag);
   while (log.textContent.length > LOG_LIMIT && log.firstChild) log.firstChild.remove();
   if (stick || initial) log.scrollTop = log.scrollHeight;
   if (!initial && state.page !== "activity") $("activity-dot").classList.add("on");
-  $("last-line").textContent = busy() ? state.lastLine : "";
 }
 
 
@@ -962,7 +971,6 @@ function renderProgress() {
       bar,
       el("span", { class: "task-num", text: t.total > 0 ? `${(f * 100).toFixed(0)}% · ${formatPair(t.done, t.total)}` : "" })));
   }
-  $("last-line").textContent = busy() ? state.lastLine : "";
   if (!wave.running) { wave.running = true; requestAnimationFrame(drawWave); }
 }
 
@@ -1017,13 +1025,7 @@ function setup() {
   applyLanguage();
   for (const b of $("lang-mode").children) b.addEventListener("click", () => setLanguage(b.dataset.lang));
   for (const b of document.querySelectorAll(".nav-item")) b.addEventListener("click", () => showPage(b.dataset.page));
-  for (const b of $("filter").children) b.addEventListener("click", () => {
-    state.filter = b.dataset.filter;
-    for (const x of $("filter").children) x.classList.toggle("on", x === b);
-    renderAccounts();
-  });
   $("play").addEventListener("click", play);
-  $("fab").addEventListener("click", showAddAccount);
   $("close-game").addEventListener("click", confirmCloseGame);
   for (const [id, cmd] of [["signin-open", "signinOpen"], ["signin-fresh", "signinFresh"], ["signin-here", "signinHere"]]) {
     $(id).addEventListener("click", () => send({ cmd }));
@@ -1031,13 +1033,7 @@ function setup() {
   $("signin-cancel").addEventListener("click", () => send({ cmd: "signinCancel" }));
   $("add-inline").addEventListener("click", showAddAccount);
   $("add-empty").addEventListener("click", showAddAccount);
-  $("game-change").addEventListener("click", () => send({ cmd: "gameFolder" }));
-  $("fx-change").addEventListener("click", () => send({ cmd: "fxFolder" }));
-  for (const b of $("main-client-mode").children) b.addEventListener("click", () => send({ cmd: "mainMode", value: b.dataset.mode }));
   for (const b of $("mods-mode").children) b.addEventListener("click", () => send({ cmd: "allowMods", value: b.dataset.mode }));
-  $("game-open").addEventListener("click", () => send({ cmd: "openGameFolder" }));
-  $("game-clear").addEventListener("click", () => send({ cmd: "clearDownloads" }));
-  $("game-uninstall").addEventListener("click", () => send({ cmd: "uninstall" }));
   $("data-open").addEventListener("click", () => send({ cmd: "openDataFolder" }));
   $("update-check").addEventListener("click", checkUpdate);
   for (const b of $("autostart-mode").children) b.addEventListener("click", () => { renderAutostart(b.dataset.mode); send({ cmd: "autostart", value: b.dataset.mode }); });
@@ -1106,10 +1102,6 @@ const demo = {
         if (cmd.prompt === 8) {
           emit({ type: "notice", message: cmd.ok ? "Code " + cmd.value + " sent for verification" : "Cancelled" });
           break;
-        }
-        if (cmd.prompt === 6 && cmd.value === "yes") {
-          demo.uninstalled = true;
-          emit({ type: "done", status: "ok", title: "Uninstalling the game" });
         }
         if (cmd.prompt === 10 && cmd.value === "yes") {
           demo.mainRemoved = true;
@@ -1184,10 +1176,10 @@ const demo = {
         emit({ type: "browsed", prompt: cmd.prompt, path: "D:\\Games\\Armored Warfare" });
         break;
       case "gameInfo":
-        emit({ type: "gameInfo", dir: "H:\\Games\\Armored Warfare", downloads: 3.2 * GiB, free: 812.4 * GiB, clients: demo.uninstalled ? [] : [
-          ...(!demo.mainRemoved ? [{ kind: "vkplay", dir: "H:\\Games\\Armored Warfare", version: "build 442" },
-          { kind: "fxid", branch: "default", dir: "H:\\Games\\Armored Warfare", version: "0.566.1" }] : []),
-          ...(demo.downloaded ? [{ kind: "branch", branch: "SuperTest", dir: "H:\\Games\\Armored Warfare SuperTest", version: "0.567.0" }] : [])] });
+        emit({ type: "gameInfo", dir: "H:\\Games\\Armored Warfare", downloads: 3.2 * GiB, free: 812.4 * GiB, clients: [
+          ...(!demo.mainRemoved ? [{ kind: "vkplay", dir: "H:\\Games\\Armored Warfare", version: "build 442", downloads: demo.cleared ? 0 : 3.2 * GiB }] : []),
+          { kind: "fxid", branch: "default", dir: "H:\\Games\\Armored Warfare FX ID", version: "0.566.1" },
+          ...(demo.downloaded ? [{ kind: "branch", branch: "SuperTest", dir: "H:\\Games\\Armored Warfare FX ID SuperTest", version: "0.567.0" }] : [])] });
         break;
       case "availableClients":
         emit({ type: "availableClients", clients: [
@@ -1201,7 +1193,7 @@ const demo = {
         break;
       case "verify":
         begin({ id: 5, title: "Checking " + (cmd.value === "vkplay" ? "VK Play" : "FX ID " + cmd.branch), game: true });
-        setTimeout(() => { end(5); emit({ type: "done", status: "ok", title: "Checking" }); }, 1500);
+        setTimeout(() => { end(5); emit({ type: "notice", kind: "ok", message: cmd.value === "vkplay" ? "VK Play build 442: all files are checked" : "FX ID main branch 0.566.1: all files are checked" }); emit({ type: "done", status: "ok", title: "Checking" }); }, 1500);
         break;
       case "autostart":
         demo.autostart = cmd.value;
@@ -1230,12 +1222,16 @@ const demo = {
         begin({ id: 7, title: "Updating AWLauncher", game: true });
         setTimeout(() => { end(7); emit({ type: "done", status: "ok", title: "Updating AWLauncher" }); }, 2000);
         break;
-      case "uninstall":
-        emit({ type: "prompt", id: 6, op: "Uninstalling the game", kind: "confirm", question: "Uninstall Armored Warfare and free about 136.6 GiB? Your accounts stay in the launcher.", default: false,
-          context: ["  VK Play, build 442: H:\\Games\\Armored Warfare", "  FX ID SuperTest, 0.565.1: H:\\Games\\Armored Warfare SuperTest"] });
-        break;
       case "removeMainClient":
-        emit({ type: "prompt", id: 10, op: "Removing VK Play", kind: "confirm", question: "Remove VK Play and FX ID main branch from H:\\Games\\Armored Warfare?", default: false });
+        emit({ type: "prompt", id: 10, op: "Removing VK Play", kind: "confirm", question: "Remove VK Play from H:\\Games\\Armored Warfare?", default: false });
+        break;
+      case "clearDownloads":
+        demo.cleared = true;
+        emit({ type: "done", status: "ok", title: "Deleting downloaded patches" });
+        break;
+      case "updateClient":
+        begin({ id: 11, title: "Updating " + (cmd.value === "vkplay" ? "VK Play" : "FX ID"), game: true });
+        setTimeout(() => { end(11); emit({ type: "notice", message: cmd.value === "vkplay" ? "VK Play build 442 is up to date" : "FX ID main branch 0.566.1 is up to date" }); emit({ type: "done", status: "ok", title: "Updating" }); }, 1200);
         break;
     }
     if (cmd.cmd === "answer" && cmd.prompt !== 1) end(cmd.prompt);

@@ -9,6 +9,8 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/TheGreatPepix/awlauncher/internal/launcher/ui"
+
 	"fyne.io/systray"
 	"github.com/TheGreatPepix/awlauncher/internal/appicon"
 )
@@ -54,13 +56,13 @@ func startTray(a trayActions) (*trayIcon, error) {
 			systray.SetOnTapped(a.tap)
 			var played chan struct{}
 			if a.play != nil {
-				t.playItem = systray.AddMenuItem(tr("Play"), tr("Start the last played account"))
+				t.playItem = systray.AddMenuItem(ui.Translate("Play"), ui.Translate("Start the last played account"))
 				t.playItem.Hide()
 				played = t.playItem.ClickedCh
 			}
-			openItem := systray.AddMenuItem(tr("Open AWLauncher"), tr("Show the launcher"))
+			openItem := systray.AddMenuItem(ui.Translate("Open AWLauncher"), ui.Translate("Show the launcher"))
 			systray.AddSeparator()
-			exitItem := systray.AddMenuItem(tr("Exit"), tr("Close the launcher"))
+			exitItem := systray.AddMenuItem(ui.Translate("Exit"), ui.Translate("Close the launcher"))
 			t.openItem, t.exitItem = openItem, exitItem
 			go func() {
 				for {
@@ -95,12 +97,12 @@ func (t *trayIcon) relabel() {
 	}
 	t.mu.Lock()
 	defer t.mu.Unlock()
-	t.openItem.SetTitle(tr("Open AWLauncher"))
-	t.openItem.SetTooltip(tr("Show the launcher"))
-	t.exitItem.SetTitle(tr("Exit"))
-	t.exitItem.SetTooltip(tr("Close the launcher"))
+	t.openItem.SetTitle(ui.Translate("Open AWLauncher"))
+	t.openItem.SetTooltip(ui.Translate("Show the launcher"))
+	t.exitItem.SetTitle(ui.Translate("Exit"))
+	t.exitItem.SetTooltip(ui.Translate("Close the launcher"))
 	if t.playItem != nil {
-		t.playItem.SetTooltip(tr("Start the last played account"))
+		t.playItem.SetTooltip(ui.Translate("Start the last played account"))
 	}
 }
 

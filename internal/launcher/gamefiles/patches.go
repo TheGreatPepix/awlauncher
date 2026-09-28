@@ -1,0 +1,100 @@
+package gamefiles
+
+import (
+	"errors"
+	"fmt"
+	"net/http"
+	"os"
+	"path/filepath"
+	"time"
+
+	"github.com/TheGreatPepix/awlauncher/internal/launcher/cache"
+	"github.com/TheGreatPepix/awlauncher/internal/launcher/platform"
+)
+
+const (
+	patchJobs      = 2
+	patchSourceMiB = 768
+)
+
+func InstallPatches(gameRoot string, patches []patchInfo) error {
+	if err := EnsureGameClosed(); err != nil {
+		return err
+	}
+	build, last, err := CurrentBuild(gameRoot)
+	if err != nil {
+		return fmt.Errorf("read game build: %w", err)
+	}
+	cacheRoot := CacheDir(gameRoot)
+	if err := os.MkdirAll(cacheRoot, 0755); err != nil {
+		return err
+	}
+	client := &http.Client{Timeout: 90 * time.Second}
+	for _, p := range patches {
+		if p.Source != build {
+			return errors.New("catalog patch sequence is inconsistent")
+		}
+		fmt.Printf("\n=== Patch %d -> %d ===\n", p.Source, p.Destination)
+		meta, err := fetchTorrent(client, p.TorrentURL, p.TorrentSHA1)
+		if err != nil {
+			return err
+		}
+		payload := filepath.Join(cacheRoot, fmt.Sprintf("payload-%d-%d", p.Source, p.Destination))
+		if err := meta.Download(&http.Client{Timeout: 2 * time.Hour}, payload, patchJobs); err != nil {
+			return err
+		}
+		manifest, err := loadManifest(payload, p)
+		if err != nil {
+			return err
+		}
+		stage := filepath.Join(cacheRoot, fmt.Sprintf("stage-%d-%d", p.Source, p.Destination))
+		if err := os.MkdirAll(stage, 0755); err != nil {
+			return err
+		}
+		names, err := stagePatch(gameRoot, payload, stage, manifest, patchJobs, patchSourceMiB)
+		if err != nil {
+			return err
+		}
+		fmt.Printf("Files built and verified: %d\n", len(names))
+		backup, err := os.MkdirTemp(cacheRoot, fmt.Sprintf("backup-%d-%d-", p.Source, p.Destination))
+		if err != nil {
+			return err
+		}
+		if err := installPatch(gameRoot, stage, backup, names, last, p, manifest); err != nil {
+			return err
+		}
+		fmt.Printf("Patch %d installed. Backups: %s\n", p.Destination, backup)
+		build, last, err = CurrentBuild(gameRoot)
+		if err != nil {
+			return err
+		}
+		if build != p.Destination {
+			return errors.New("installed build was not updated")
+		}
+	}
+	cache.Cleanup(cacheRoot, build)
+	return nil
+}
+
+func CacheDir(gameRoot string) string {
+	dir := filepath.Join(gameRoot, "-gup-", "awlauncher-cache")
+	if _, err := os.Stat(dir); err == nil {
+		return dir
+	}
+	old := filepath.Join(gameRoot, "-gup-", "awpatcher-cache")
+	if st, err := os.Stat(old); err == nil && st.IsDir() {
+		return old
+	}
+	return dir
+}
+
+func EnsureGameClosed() error {
+	name, err := platform.RunningProcess(platform.GameExe)
+	if err != nil {
+		return err
+	}
+	if name != "" {
+		return errors.New("close the game first")
+	}
+	return nil
+}

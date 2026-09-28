@@ -4,10 +4,12 @@ import (
 	"strings"
 	"testing"
 	"time"
+
+	"github.com/TheGreatPepix/awlauncher/internal/launcher/ui"
 )
 
 func TestUIPageIsSelfContained(t *testing.T) {
-	page, err := uiPage()
+	page, err := ui.Page()
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -63,9 +65,9 @@ func TestQuestionShowsOnlyItsOperationsOutput(t *testing.T) {
 	g := &guiApp{prompts: map[int]*pendingPrompt{}, session: &session{found: &foundGame{}}}
 	install := g.opSession(operation{Title: "Starting A"})
 	branches := g.opSession(operation{Title: "Loading branches of B"})
-	branches.p.say("Which branch should B play?")
-	install.p.sayf("Downloading %d%%\n", 40)
-	branches.p.say("  1  default\n  2  supertest")
+	branches.p.Say("Which branch should B play?")
+	install.p.Sayf("Downloading %d%%\n", 40)
+	branches.p.Say("  1  default\n  2  supertest")
 
 	pending := func() *pendingPrompt {
 		for range 200 {
@@ -94,6 +96,6 @@ func TestQuestionShowsOnlyItsOperationsOutput(t *testing.T) {
 		}
 	}
 	ask(branches, "Loading branches of B", "Which branch should B play?", "  1  default", "  2  supertest")
-	branches.p.say("Not a branch number.")
+	branches.p.Say("Not a branch number.")
 	ask(branches, "Loading branches of B", "Not a branch number.")
 }

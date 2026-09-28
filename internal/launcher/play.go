@@ -8,6 +8,9 @@ import (
 	"strconv"
 	"strings"
 	"time"
+
+	"github.com/TheGreatPepix/awlauncher/internal/launcher/config"
+	"github.com/TheGreatPepix/awlauncher/internal/launcher/platform"
 )
 
 func printUsage() {
@@ -23,26 +26,26 @@ do those in the menu first. It suits launchers that track the game by its proces
 `, name)
 }
 
-func pickPlayAccount(cfg launcherConfig, sel string) (account, error) {
+func pickPlayAccount(cfg config.Config, sel string) (config.Account, error) {
 	sel = strings.TrimSpace(sel)
 	if len(cfg.Accounts) == 0 {
-		return account{}, errors.New("there are no accounts; run AWLauncher without arguments and add one")
+		return config.Account{}, errors.New("there are no accounts; run AWLauncher without arguments and add one")
 	}
 	if sel == "" {
-		if acc, ok := cfg.defaultAccount(); ok {
+		if acc, ok := cfg.DefaultAccount(); ok {
 			return acc, nil
 		}
-		return account{}, errors.New("no account was used yet; name one: play ACCOUNT")
+		return config.Account{}, errors.New("no account was used yet; name one: play ACCOUNT")
 	}
 	if n, err := strconv.Atoi(sel); err == nil && n >= 1 && n <= len(cfg.Accounts) {
 		return cfg.Accounts[n-1], nil
 	}
 	for _, a := range cfg.Accounts {
-		if strings.EqualFold(a.displayName(), sel) || strings.EqualFold(a.login(), sel) {
+		if strings.EqualFold(a.DisplayName(), sel) || strings.EqualFold(a.Login(), sel) {
 			return a, nil
 		}
 	}
-	return account{}, fmt.Errorf("there is no account %q", sel)
+	return config.Account{}, fmt.Errorf("there is no account %q", sel)
 }
 
 var unattendedDeclines = []string{
@@ -76,26 +79,26 @@ func unattendedPrompter() prompter {
 }
 
 func runPlay(sel string) error {
-	loaded, err := loadConfig()
+	loaded, err := config.Load()
 	if err != nil {
 		return err
 	}
-	store := newConfigStore(loaded)
-	acc, err := pickPlayAccount(store.get(), sel)
+	store := config.NewStore(loaded)
+	acc, err := pickPlayAccount(store.Get(), sel)
 	if err != nil {
 		return err
 	}
 	s := &session{p: unattendedPrompter(), cfg: store, client: authClient(), found: &foundGame{}}
-	fmt.Printf("AWLauncher %s - %s\n\n", Version, acc.label())
+	fmt.Printf("AWLauncher %s - %s\n\n", Version, acc.Label())
 	switch err := s.play(acc); {
 	case errors.Is(err, errNeedLogin):
-		return fmt.Errorf("the sign-in of %s has expired; run AWLauncher without arguments to sign in again", acc.label())
+		return fmt.Errorf("the sign-in of %s has expired; run AWLauncher without arguments to sign in again", acc.Label())
 	case errors.Is(err, errQuit):
 		return errors.New("the game is not set up; run AWLauncher without arguments to choose the game folder or install the game")
 	case err != nil:
 		return err
 	}
-	if err := store.update(func(c *launcherConfig) { c.LastUserID = acc.UserID }); err != nil {
+	if err := store.Update(func(c *config.Config) { c.LastUserID = acc.UserID }); err != nil {
 		return err
 	}
 	return waitForGame(3*time.Minute, 2*time.Second)
@@ -103,12 +106,12 @@ func runPlay(sel string) error {
 
 func waitForGame(start, poll time.Duration) error {
 	fmt.Println("Waiting for the game to exit...")
-	for deadline := time.Now().Add(start); !gameRunning(); time.Sleep(poll) {
+	for deadline := time.Now().Add(start); !platform.GameRunning(); time.Sleep(poll) {
 		if time.Now().After(deadline) {
 			return errors.New("the game did not appear; it may have failed to start")
 		}
 	}
-	for gameRunning() {
+	for platform.GameRunning() {
 		time.Sleep(poll)
 	}
 	fmt.Println("The game has exited.")

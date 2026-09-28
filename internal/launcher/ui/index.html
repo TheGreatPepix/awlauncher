@@ -34,13 +34,6 @@
       </div>
     </div>
 
-    <div class="drawer-label">Service</div>
-    <div class="segmented" id="filter" role="group" aria-label="Accounts shown">
-      <button data-filter="all" class="on">All</button>
-      <button data-filter="vkplay">VK Play</button>
-      <button data-filter="fxid">FX ID</button>
-    </div>
-
     <nav class="nav">
       <button class="nav-item on" data-page="home"><svg class="icon"><use href="#i-home"/></svg><span>Play</span></button>
       <button class="nav-item" data-page="game"><svg class="icon"><use href="#i-game"/></svg><span>Game</span></button>
@@ -93,7 +86,6 @@
           <button class="btn text state progress-pause" id="progress-pause" hidden><svg class="icon sm"><use href="#i-pause"/></svg><span>Pause</span></button>
         </div>
         <div class="tasks" id="tasks"></div>
-        <div class="last-line" id="last-line"></div>
       </div>
 
       <div class="card accounts-card">
@@ -108,7 +100,7 @@
         <div class="empty" id="empty">
           <div class="empty-art"><svg class="icon lg"><use href="#i-person-add"/></svg></div>
           <div class="empty-title">No accounts yet</div>
-          <div class="empty-text">Add a VK Play or FX ID account. The main FX ID and VK Play clients share one game folder.</div>
+          <div class="empty-text">Add a VK Play or FX ID account. Each service keeps its own game folder.</div>
           <button class="btn tonal" id="add-empty"><svg class="icon sm"><use href="#i-add"/></svg>Add account</button>
         </div>
       </div>
@@ -127,38 +119,7 @@
     <section class="page" id="page-game">
       <header class="page-head"><h1>Game</h1></header>
 
-      <div class="section-label">Folder</div>
-      <div class="card list">
-        <div class="list-item">
-          <svg class="icon lead"><use href="#i-globe"/></svg>
-          <div class="list-text"><div class="list-title">Main client folders</div><div class="list-sub">FX ID and VK Play can share one installation or use separate folders.</div></div>
-          <div class="segmented" id="main-client-mode" role="group" aria-label="Main client folders"><button data-mode="shared">Shared</button><button data-mode="separate">Separate</button></div>
-        </div>
-        <div class="list-item">
-          <svg class="icon lead"><use href="#i-folder"/></svg>
-          <div class="list-text">
-            <div class="list-title" id="game-folder-title">Main game folder</div>
-            <div class="list-sub mono" id="game-folder">Chosen on the first start</div>
-          </div>
-          <button class="btn text" id="game-open">Open</button>
-          <button class="btn tonal" id="game-change">Choose…</button>
-        </div>
-        <div class="list-item" id="fx-folder-row" hidden>
-          <svg class="icon lead"><use href="#i-folder"/></svg>
-          <div class="list-text"><div class="list-title">FX ID folder</div><div class="list-sub mono" id="fx-folder">Choose a folder</div></div>
-          <button class="btn tonal" id="fx-change">Choose…</button>
-        </div>
-        <div class="list-item">
-          <svg class="icon lead"><use href="#i-storage"/></svg>
-          <div class="list-text">
-            <div class="list-title">Downloaded patches</div>
-            <div class="list-sub" id="game-downloads">…</div>
-          </div>
-          <button class="btn text" id="game-clear">Delete</button>
-        </div>
-      </div>
-
-      <div class="section-label">Game clients</div>
+      <div class="section-label">Clients</div>
       <div class="card list" id="game-clients"></div>
 
       <div class="section-label">Game files</div>
@@ -172,18 +133,6 @@
           <div class="segmented" id="mods-mode" role="group" aria-label="Allow mods">
             <button data-mode="off">Off</button><button data-mode="on">On</button>
           </div>
-        </div>
-      </div>
-
-      <div class="section-label">Uninstall</div>
-      <div class="card list">
-        <div class="list-item">
-          <svg class="icon lead"><use href="#i-delete"/></svg>
-          <div class="list-text">
-            <div class="list-title">Uninstall the game</div>
-            <div class="list-sub">Removes the game and its closed branches from this computer. Your accounts stay in the launcher.</div>
-          </div>
-          <button class="btn danger" id="game-uninstall">Uninstall…</button>
         </div>
       </div>
     </section>
@@ -228,7 +177,10 @@
         </div>
         <div class="list-item">
           <svg class="icon lead"><use href="#i-palette"/></svg>
-          <div class="list-text"><div class="list-title">Color</div></div>
+          <div class="list-text">
+            <div class="list-title">Color</div>
+            <input type="range" class="hue-slider" id="hue-slider" min="0" max="359" step="1" aria-label="Hue">
+          </div>
           <div class="swatches" id="swatches"></div>
         </div>
         <div class="list-item">
@@ -263,7 +215,6 @@
       </div>
     </section>
 
-    <button class="fab" id="fab" title="Add account"><svg class="icon"><use href="#i-add"/></svg></button>
   </main>
 </div>
 
@@ -278,7 +229,7 @@
 
 <div class="menu" id="menu" role="menu"></div>
 
-<div class="snackbar" id="snackbar"><span id="snackbar-text"></span></div>
+<div class="toasts" id="toasts" aria-live="polite"></div>
 
 <svg width="0" height="0" style="position:absolute">
   <symbol id="i-play" viewBox="0 0 24 24"><path d="M8 5.14v13.72a1 1 0 0 0 1.52.85l10.99-6.86a1 1 0 0 0 0-1.7L9.52 4.29A1 1 0 0 0 8 5.14z"/></symbol>

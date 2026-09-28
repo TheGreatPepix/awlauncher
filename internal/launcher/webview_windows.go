@@ -9,10 +9,13 @@ import (
 )
 
 var (
-	winUser32  = windows.NewLazySystemDLL("user32.dll")
-	winDwmapi  = windows.NewLazySystemDLL("dwmapi.dll")
-	winShell32 = windows.NewLazySystemDLL("shell32.dll")
-	winOle32   = windows.NewLazySystemDLL("ole32.dll")
+	winUser32 = windows.NewLazySystemDLL("user32.dll")
+	kernel32  = windows.NewLazySystemDLL("kernel32.dll")
+
+	procGetWindowThreadProcessId = winUser32.NewProc("GetWindowThreadProcessId")
+	winDwmapi                    = windows.NewLazySystemDLL("dwmapi.dll")
+	winShell32                   = windows.NewLazySystemDLL("shell32.dll")
+	winOle32                     = windows.NewLazySystemDLL("ole32.dll")
 
 	procRegisterClassExW         = winUser32.NewProc("RegisterClassExW")
 	procCreateWindowExW          = winUser32.NewProc("CreateWindowExW")
@@ -32,7 +35,6 @@ var (
 	procGetDpiForSystem          = winUser32.NewProc("GetDpiForSystem")
 	procGetDpiForWindow          = winUser32.NewProc("GetDpiForWindow")
 	procGetSystemMetrics         = winUser32.NewProc("GetSystemMetrics")
-	procGetDriveTypeW            = windows.NewLazySystemDLL("kernel32.dll").NewProc("GetDriveTypeW")
 	procLoadCursorW              = winUser32.NewProc("LoadCursorW")
 	procCreateIconFromResourceEx = winUser32.NewProc("CreateIconFromResourceEx")
 	procMessageBoxW              = winUser32.NewProc("MessageBoxW")
