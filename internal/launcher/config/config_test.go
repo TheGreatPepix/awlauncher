@@ -29,7 +29,9 @@ func TestAccountsDefaultAndRemove(t *testing.T) {
 }
 
 func TestConfigStoreChangesOnlyOneField(t *testing.T) {
-	t.Setenv("LOCALAPPDATA", t.TempDir())
+	dataDir := t.TempDir()
+	t.Setenv("LOCALAPPDATA", dataDir)
+	t.Setenv("XDG_DATA_HOME", dataDir)
 	s := NewStore(Config{Accounts: []Account{{UserID: 1, Name: "old", Provider: ProviderFX, Email: "a@b.c"}}})
 	held, _ := s.Find(1)
 	if err := s.UpdateAccount(1, func(a *Account) { a.Name = "new" }); err != nil {

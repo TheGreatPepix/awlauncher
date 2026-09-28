@@ -20,7 +20,9 @@ func writeBranchState(t *testing.T, dir string, s gamefiles.BranchState) {
 }
 func gameSession(t *testing.T, root string, answer bool) *Session {
 	t.Helper()
-	t.Setenv("LOCALAPPDATA", t.TempDir())
+	dataDir := t.TempDir()
+	t.Setenv("LOCALAPPDATA", dataDir)
+	t.Setenv("XDG_DATA_HOME", dataDir)
 	return NewSession(config.NewStore(config.Config{Game: root})).WithUI(&fakeUI{yes: answer})
 }
 func TestConfiguredClientFolders(t *testing.T) {

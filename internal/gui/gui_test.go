@@ -59,7 +59,9 @@ func (h *fakeHost) closeSignIn()                                          {}
 
 func testApp(t *testing.T) (*App, *fakeHost) {
 	t.Helper()
-	t.Setenv("LOCALAPPDATA", t.TempDir())
+	dataDir := t.TempDir()
+	t.Setenv("LOCALAPPDATA", dataDir)
+	t.Setenv("XDG_DATA_HOME", dataDir)
 	h := &fakeHost{}
 	logs := &logBuffer{}
 	log.SetOutput(logs)

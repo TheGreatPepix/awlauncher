@@ -45,7 +45,9 @@ func fakeFXServer(t *testing.T, game string) *httptest.Server {
 }
 
 func TestFXLoginAndGameToken(t *testing.T) {
-	t.Setenv("LOCALAPPDATA", t.TempDir())
+	dataDir := t.TempDir()
+	t.Setenv("LOCALAPPDATA", dataDir)
+	t.Setenv("XDG_DATA_HOME", dataDir)
 	exp := time.Now().Add(time.Hour).Unix()
 	srv := fakeFXServer(t, fakeJWT(exp))
 	defer srv.Close()
@@ -85,7 +87,9 @@ func TestFXLoginAndGameToken(t *testing.T) {
 }
 
 func TestFXBranches(t *testing.T) {
-	t.Setenv("LOCALAPPDATA", t.TempDir())
+	dataDir := t.TempDir()
+	t.Setenv("LOCALAPPDATA", dataDir)
+	t.Setenv("XDG_DATA_HOME", dataDir)
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		switch r.URL.Path {
 		case "/api/v1/auth/authenticate_with_external_id/aw":
@@ -129,7 +133,9 @@ func TestFXBranches(t *testing.T) {
 }
 
 func TestFXActivateKey(t *testing.T) {
-	t.Setenv("LOCALAPPDATA", t.TempDir())
+	dataDir := t.TempDir()
+	t.Setenv("LOCALAPPDATA", dataDir)
+	t.Setenv("XDG_DATA_HOME", dataDir)
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if r.URL.Path == "/api/v1/auth/authenticate_with_external_id/aw" {
 			json.NewEncoder(w).Encode(fxid.AuthResponse{State: 99, Tokens: &fxid.Tokens{RefreshToken: "r", GameAccessToken: "g", AccessToken: "site"}})
