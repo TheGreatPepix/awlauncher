@@ -45,15 +45,14 @@ Name: "en"; MessagesFile: "compiler:Default.isl"
 Name: "ru"; MessagesFile: "compiler:Languages\Russian.isl"
 
 [CustomMessages]
-en.RemoveData=Also remove your AWLauncher accounts and settings from this computer?%n%nThe game files stay. To remove the game as well, use Game > Uninstall in AWLauncher before you uninstall it, or delete the game folder.
-ru.RemoveData=Удалить с этого компьютера и ваши аккаунты и настройки AWLauncher?%n%nФайлы игры останутся. Чтобы удалить и игру, перед удалением лаунчера выберите в нём Game > Uninstall или удалите папку игры вручную.
+en.RemoveData=Also remove your AWLauncher accounts and settings from this computer?%n%nThe game files stay. To remove the game as well, remove its clients on the Game page in AWLauncher before you uninstall it, or delete the game folder.
+ru.RemoveData=Удалить с этого компьютера и ваши аккаунты и настройки AWLauncher?%n%nФайлы игры останутся. Чтобы удалить и игру, перед удалением лаунчера удалите её клиенты на странице «Игра» или удалите папку игры вручную.
 
 [Tasks]
 Name: "desktopicon"; Description: "{cm:CreateDesktopIcon}"; GroupDescription: "{cm:AdditionalIcons}"
 
 [Files]
 Source: "{#DistDir}\AWLauncher.exe"; DestDir: "{app}"; Flags: ignoreversion
-Source: "{#DistDir}\AWLauncherConsole.exe"; DestDir: "{app}"; Flags: ignoreversion
 
 [Icons]
 Name: "{autoprograms}\AWLauncher"; Filename: "{app}\AWLauncher.exe"
@@ -61,6 +60,11 @@ Name: "{autodesktop}\AWLauncher"; Filename: "{app}\AWLauncher.exe"; Tasks: deskt
 
 [Run]
 Filename: "{app}\AWLauncher.exe"; Description: "{cm:LaunchProgram,AWLauncher}"; Flags: nowait postinstall skipifsilent
+
+[InstallDelete]
+Type: files; Name: "{app}\AWLauncherConsole.exe"
+Type: files; Name: "{app}\AWLauncherConsole-next.exe"
+Type: files; Name: "{app}\AWLauncherConsole-previous.exe"
 
 [UninstallDelete]
 Type: files; Name: "{app}\AWLauncher-next.exe"

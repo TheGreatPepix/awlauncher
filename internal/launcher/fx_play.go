@@ -3,7 +3,6 @@ package launcher
 import (
 	"errors"
 	"fmt"
-	"net/http"
 	"path/filepath"
 	"strings"
 
@@ -14,12 +13,12 @@ import (
 	"github.com/TheGreatPepix/awlauncher/internal/progress"
 )
 
-func playFXInstall(client *http.Client, p *prompter, acc config.Account, branch, root, mainRoot string, ask, allowMods bool) error {
-	state, err := syncFXClient(client, p, acc, branch, root, mainRoot, ask, allowMods)
+func (s *Session) playFX(acc config.Account, branch, root, mainRoot string, ask bool) error {
+	state, err := s.syncFX(acc, branch, root, mainRoot, ask, s.cfg.Get().AllowMods)
 	if err != nil {
 		return err
 	}
-	launchToken, err := fxGameToken(client, acc)
+	launchToken, err := fxGameToken(s.client, acc)
 	if err != nil {
 		return err
 	}
@@ -31,15 +30,15 @@ func playFXInstall(client *http.Client, p *prompter, acc config.Account, branch,
 	if err != nil {
 		return err
 	}
-	pid, err := platform.StartGame(exe, fxLaunchArgs(client, acc, launchToken), root)
+	pid, err := platform.StartGame(exe, fxLaunchArgs(s.client, acc, launchToken), root)
 	if err != nil {
 		return fmt.Errorf("start the game: %w", err)
 	}
-	p.Sayf("Game started: %s, branch %s %s, PID %d\n", acc.Label(), branch, state.Version, pid)
+	s.ui.Sayf("Game started: %s, branch %s %s, PID %d", acc.Label(), branch, state.Version, pid)
 	return nil
 }
 
-func syncFXClient(client *http.Client, p *prompter, acc config.Account, branch, root, mainRoot string, ask, allowMods bool) (gamefiles.BranchState, error) {
+func (s *Session) syncFX(acc config.Account, branch, root, mainRoot string, ask, allowMods bool) (gamefiles.BranchState, error) {
 	if gamefiles.IsVKInstall(root) {
 		return gamefiles.BranchState{}, errors.New("FX ID client folder contains a VK Play installation")
 	}
@@ -51,18 +50,18 @@ func syncFXClient(client *http.Client, p *prompter, acc config.Account, branch, 
 	} else if name != "" {
 		return gamefiles.BranchState{}, errors.New("the game is already running")
 	}
-	tokens, err := fxSession(client, acc)
+	tokens, err := fxSession(s.client, acc)
 	if err != nil {
 		return gamefiles.BranchState{}, err
 	}
-	m, _, err := fxid.GetBranchManifest(client, tokens.AccessToken, branch)
+	m, _, err := fxid.GetBranchManifest(s.client, tokens.AccessToken, branch)
 	if err != nil {
 		return gamefiles.BranchState{}, fmt.Errorf("branch %s: %w", branch, err)
 	}
 	if ask {
 		if state, ok := gamefiles.ReadBranchState(root); !ok || state.Branch != branch {
-			if !p.Yes(fmt.Sprintf("Download the FX ID client (%s) into %s?", progress.FormatBytes(m.FullSize()), root), false) {
-				return gamefiles.BranchState{}, errQuit
+			if !s.ui.Yes(fmt.Sprintf("Download the FX ID client (%s) into %s?", progress.FormatBytes(m.FullSize()), root), false) {
+				return gamefiles.BranchState{}, ErrCancelled
 			}
 		}
 	}
@@ -70,7 +69,7 @@ func syncFXClient(client *http.Client, p *prompter, acc config.Account, branch, 
 		mainRoot = ""
 	}
 	prev, had := gamefiles.ReadBranchState(root)
-	state, err := gamefiles.SyncBranch(client, branchRelease(branch, m), mainRoot, root, allowMods)
+	state, err := gamefiles.SyncBranch(s.client, branchRelease(branch, m), mainRoot, root, allowMods)
 	if err != nil {
 		return state, err
 	}
@@ -80,9 +79,9 @@ func syncFXClient(client *http.Client, p *prompter, acc config.Account, branch, 
 	}
 	switch {
 	case !had:
-		p.Notify(fmt.Sprintf("%s %s is installed", name, state.Version))
+		s.ui.Notify(fmt.Sprintf("%s %s is installed", name, state.Version))
 	case prev.Version != state.Version:
-		p.Notify(fmt.Sprintf("%s is updated to %s", name, state.Version))
+		s.ui.Notify(fmt.Sprintf("%s is updated to %s", name, state.Version))
 	}
 	return state, nil
 }

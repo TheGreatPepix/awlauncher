@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"io/fs"
+	"log"
 	"net/http"
 	"os"
 	"os/exec"
@@ -18,9 +19,9 @@ import (
 )
 
 const (
-	SelfAssetName    = "AWLauncher.exe"
-	consoleAssetName = "AWLauncherConsole.exe"
-	updatedFlag      = "--updated"
+	SelfAssetName     = "AWLauncher.exe"
+	legacyConsoleName = "AWLauncherConsole.exe"
+	updatedFlag       = "--updated"
 
 	installAppID = "{B06FF05E-7E61-4055-B1EA-2336934729B7}_is1"
 )
@@ -65,14 +66,8 @@ func Install(client *http.Client, current string) (string, error) {
 		return "", fmt.Errorf("release %s has no %s; download it from %s", r.Tag, SelfAssetName, r.Page)
 	}
 	files := []updateFile{{main, exe}}
-	console := filepath.Join(filepath.Dir(exe), consoleAssetName)
-	if a, ok := r.asset(consoleAssetName); ok && !strings.EqualFold(console, exe) {
-		if _, err := os.Stat(console); err == nil {
-			files = append(files, updateFile{a, console})
-		}
-	}
 
-	fmt.Printf("Updating AWLauncher %s to %s...\n", current, r.Tag)
+	log.Printf("Updating AWLauncher %s to %s...\n", current, r.Tag)
 	var total int64
 	for _, f := range files {
 		total += f.asset.Size
@@ -102,7 +97,7 @@ func Install(client *http.Client, current string) (string, error) {
 		}
 	}
 	noteInstalledVersion(exe, r.Tag)
-	fmt.Printf("AWLauncher %s is installed; restarting.\n", r.Tag)
+	log.Printf("AWLauncher %s is installed; restarting.\n", r.Tag)
 	return exe, nil
 }
 
@@ -149,11 +144,12 @@ func removePreviousFiles() {
 	if err != nil {
 		return
 	}
-	files := []updateFile{{path: exe}, {path: filepath.Join(filepath.Dir(exe), consoleAssetName)}}
+	console := updateFile{path: filepath.Join(filepath.Dir(exe), legacyConsoleName)}
+	stale := []string{updateFile{path: exe}.previous(), console.previous(), console.next(), console.path}
 	for attempt := 0; attempt < 10; attempt++ {
 		left := false
-		for _, f := range files {
-			if err := os.Remove(f.previous()); err != nil && !errors.Is(err, fs.ErrNotExist) {
+		for _, path := range stale {
+			if err := os.Remove(path); err != nil && !errors.Is(err, fs.ErrNotExist) {
 				left = true
 			}
 		}

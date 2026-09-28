@@ -3,6 +3,7 @@ package launcher
 import (
 	"errors"
 	"fmt"
+	"log"
 	"net/http"
 	"os"
 	"path/filepath"
@@ -13,42 +14,46 @@ import (
 	"github.com/TheGreatPepix/awlauncher/internal/launcher/config"
 	"github.com/TheGreatPepix/awlauncher/internal/launcher/fxid"
 	"github.com/TheGreatPepix/awlauncher/internal/launcher/platform"
-	"github.com/TheGreatPepix/awlauncher/internal/launcher/ui"
 	"github.com/TheGreatPepix/awlauncher/internal/launcher/vkauth"
 	"github.com/TheGreatPepix/awlauncher/internal/progress"
 )
 
-func loginFX(p prompter, client *http.Client, cfg *config.Store, email, name string) (config.Account, error) {
+func (s *Session) loginFX(email, name string) (config.Account, error) {
 	if email == "" {
-		email = p.line("E-mail of the FX ID account: ")
+		answer, ok := s.ui.Ask(Prompt{Kind: PromptEmail, Question: "E-mail of the FX ID account"})
+		if !ok {
+			return config.Account{}, ErrCancelled
+		}
+		email = strings.TrimSpace(answer)
 	}
 	if !strings.Contains(email, "@") {
 		return config.Account{}, errors.New("not an e-mail address")
 	}
-	req := fxid.AuthRequest{Locale: ui.Language(), EmailCredentials: &fxid.EmailCredentials{Email: email}}
-	resp, err := fxid.Authenticate(client, req)
+	req := fxid.AuthRequest{Locale: platform.Language(), EmailCredentials: &fxid.EmailCredentials{Email: email}}
+	resp, err := fxid.Authenticate(s.client, req)
 	if err != nil {
 		return config.Account{}, err
 	}
 	for attempt := 0; resp.State != fxid.StateSuccess; attempt++ {
 		switch {
 		case resp.State == fxid.StateNeedEmailCode && attempt == 0:
-			p.Sayf("A code was sent to %s.\n", email)
+			s.ui.Sayf("A code was sent to %s.", email)
 		case resp.State == fxid.StateWrongCode && attempt < 3:
-			p.Say("Wrong code.")
+			s.ui.Say("Wrong code.")
 		default:
 			return config.Account{}, resp.Failure()
 		}
-		code := strings.ReplaceAll(p.line("Code from the e-mail (6 digits), empty to cancel: "), " ", "")
-		if code == "" {
-			return config.Account{}, errors.New("sign-in cancelled")
+		answer, ok := s.ui.Ask(Prompt{Kind: PromptCode, Question: "Code from the e-mail"})
+		code := strings.ReplaceAll(answer, " ", "")
+		if !ok || code == "" {
+			return config.Account{}, ErrCancelled
 		}
 		if !fxid.ValidCode(code) {
 			resp.State = fxid.StateWrongCode
 			continue
 		}
 		req.EmailCredentials.EmailCode = &code
-		if resp, err = fxid.Authenticate(client, req); err != nil {
+		if resp, err = fxid.Authenticate(s.client, req); err != nil {
 			return config.Account{}, err
 		}
 	}
@@ -62,30 +67,31 @@ func loginFX(p prompter, client *http.Client, cfg *config.Store, email, name str
 	if err := config.SaveRefreshToken(acc.UserID, resp.Tokens.RefreshToken); err != nil {
 		return config.Account{}, fmt.Errorf("save session: %w", err)
 	}
-	acc, err = cfg.SignedIn(acc)
-	p.Sayf("Signed in: %s\n", acc.Label())
+	acc, err = s.cfg.SignedIn(acc)
+	s.ui.Sayf("Signed in: %s", acc.Label())
 	return acc, err
 }
+
 func fxSession(client *http.Client, acc config.Account) (fxid.Tokens, error) {
 	refresh, err := config.LoadRefreshToken(acc.UserID)
 	if errors.Is(err, os.ErrNotExist) {
-		return fxid.Tokens{}, errNeedLogin
+		return fxid.Tokens{}, ErrNeedLogin
 	}
 	if err != nil {
 		return fxid.Tokens{}, fmt.Errorf("read session: %w", err)
 	}
-	resp, err := fxid.Authenticate(client, fxid.AuthRequest{Locale: ui.Language(), RefreshToken: refresh})
+	resp, err := fxid.Authenticate(client, fxid.AuthRequest{Locale: platform.Language(), RefreshToken: refresh})
 	if err != nil {
 		var status *vkauth.HTTPStatusError
 		if errors.As(err, &status) && status.Code >= 400 && status.Code < 500 {
 			_ = config.ClearRefreshToken(acc.UserID)
-			return fxid.Tokens{}, errNeedLogin
+			return fxid.Tokens{}, ErrNeedLogin
 		}
 		return fxid.Tokens{}, fmt.Errorf("refresh session: %w", err)
 	}
 	if resp.State != fxid.StateSuccess || resp.Tokens == nil || resp.Tokens.GameAccessToken == "" {
 		_ = config.ClearRefreshToken(acc.UserID)
-		return fxid.Tokens{}, errNeedLogin
+		return fxid.Tokens{}, ErrNeedLogin
 	}
 	if resp.Tokens.RefreshToken != "" && resp.Tokens.RefreshToken != refresh {
 		if err := config.SaveRefreshToken(acc.UserID, resp.Tokens.RefreshToken); err != nil {
@@ -110,12 +116,12 @@ func fxGameToken(client *http.Client, acc config.Account) (string, error) {
 		return "", err
 	}
 	if exp, ok := fxid.JWTExpiry(tokens.GameAccessToken); ok {
-		fmt.Printf("Game token received, valid until %s.\n", exp.Local().Format("15:04 02.01.2006"))
+		log.Printf("Game token received, valid until %s.", exp.Local().Format("15:04 02.01.2006"))
 	}
 	return tokens.GameAccessToken, nil
 }
 func fxLaunchArgs(client *http.Client, acc config.Account, token string) []string {
-	return fxid.LaunchArgs(fxid.LaunchTemplate(client), ui.Language(), acc.Email, token)
+	return fxid.LaunchArgs(fxid.LaunchTemplate(client), platform.Language(), acc.Email, token)
 }
 func fxActivateKey(client *http.Client, acc config.Account, key string) (string, error) {
 	token, err := fxSiteToken(client, acc)
@@ -178,34 +184,29 @@ func fxBranches(client *http.Client, acc config.Account) ([]fxBranchInfo, error)
 	}
 	return out, nil
 }
-func printFXBranches(p prompter, branches []fxBranchInfo) {
-	if len(branches) == 0 {
-		p.Say("No branches are available to this account.")
-		return
-	}
-	width := 0
-	for _, b := range branches {
-		width = max(width, len(b.Name))
-	}
-	p.Say("FX ID client branches available to this account:")
+func logFXBranches(branches []fxBranchInfo) {
 	for _, b := range branches {
 		if b.Err != nil {
-			p.Sayf("  %-*s  manifest: %v\n", width, b.Name, b.Err)
+			log.Printf("  %s  manifest: %v", b.Name, b.Err)
 			continue
 		}
-		line := fmt.Sprintf("  %-*s  %s (build %d)", width, b.Name, b.Version, b.Build)
-		if !b.CreatedAt.IsZero() {
-			line += ", " + b.CreatedAt.Local().Format("02.01.2006")
-		}
-		if b.FullSize > 0 {
-			line += ", " + progress.FormatBytes(b.FullSize)
-		}
-		p.Say(line)
+		log.Printf("  %s  %s", b.Name, b.describe())
 	}
 	for _, b := range branches {
 		if b.Saved != "" {
-			p.Say("Branch manifests saved to", filepath.Dir(b.Saved))
+			log.Print("Branch manifests saved to ", filepath.Dir(b.Saved))
 			return
 		}
 	}
+}
+
+func (b fxBranchInfo) describe() string {
+	line := fmt.Sprintf("%s (build %d)", b.Version, b.Build)
+	if !b.CreatedAt.IsZero() {
+		line += ", " + b.CreatedAt.Local().Format("02.01.2006")
+	}
+	if b.FullSize > 0 {
+		line += ", " + progress.FormatBytes(b.FullSize)
+	}
+	return line
 }

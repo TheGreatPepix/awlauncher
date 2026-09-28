@@ -18,14 +18,10 @@ func writeBranchState(t *testing.T, dir string, s gamefiles.BranchState) {
 	}
 	writeTree(t, dir, map[string][]byte{"-gup-/awlauncher/branch.json": data})
 }
-func gameSession(t *testing.T, root string, answer bool) *session {
+func gameSession(t *testing.T, root string, answer bool) *Session {
 	t.Helper()
 	t.Setenv("LOCALAPPDATA", t.TempDir())
-	return &session{
-		p:     prompter{confirm: func(string, bool) bool { return answer }, ask: func(string) string { return "" }},
-		cfg:   config.NewStore(config.Config{Game: root}),
-		found: &foundGame{},
-	}
+	return NewSession(config.NewStore(config.Config{Game: root})).WithUI(&fakeUI{yes: answer})
 }
 func TestConfiguredClientFolders(t *testing.T) {
 	parent := t.TempDir()
@@ -92,30 +88,6 @@ func TestRemoveClientDirKeepsFilesItDoesNotKnow(t *testing.T) {
 		t.Fatal("the folder is left after the user agreed to delete it")
 	}
 }
-func TestUninstallForgetsTheGameFolder(t *testing.T) {
-	root := filepath.Join(t.TempDir(), "Armored Warfare")
-	writeTree(t, root, map[string][]byte{"data/a.pak": []byte("pak")})
-	writeBranchState(t, root, gamefiles.BranchState{Branch: gamefiles.DefaultBranch, Version: "0.566.1", Files: []gamefiles.BranchFile{{Path: "data/a.pak"}}})
-	branch := gamefiles.BranchDir(root, "SuperTest")
-	writeTree(t, branch, map[string][]byte{"data/b.pak": []byte("pak")})
-	writeBranchState(t, branch, gamefiles.BranchState{Branch: "SuperTest", Files: []gamefiles.BranchFile{{Path: "data/b.pak"}}})
-
-	s := gameSession(t, "", true)
-	if err := s.cfg.Update(func(c *config.Config) { c.FXGame = root }); err != nil {
-		t.Fatal(err)
-	}
-	if err := s.uninstallGame(); err != nil {
-		t.Fatal(err)
-	}
-	for _, dir := range []string{root, branch} {
-		if _, err := os.Stat(dir); err == nil {
-			t.Fatalf("%s is left", dir)
-		}
-	}
-	if s.cfg.Get().FXGame != "" {
-		t.Fatal("the game folder is still set")
-	}
-}
 func TestRemoveMainClientKeepsOtherFoldersAndConfiguredPaths(t *testing.T) {
 	parent := t.TempDir()
 	vk := filepath.Join(parent, "VK")
@@ -128,11 +100,11 @@ func TestRemoveMainClientKeepsOtherFoldersAndConfiguredPaths(t *testing.T) {
 	if err := s.cfg.Update(func(c *config.Config) { c.FXGame = fx }); err != nil {
 		t.Fatal(err)
 	}
-	fxClient, err := s.findClient(gamefiles.KindFX, "")
+	fxClient, err := s.FindClient(gamefiles.KindFX, "")
 	if err != nil {
 		t.Fatal(err)
 	}
-	if err := s.removeMainClient(fxClient); err != nil {
+	if err := s.RemoveMainClient(fxClient); err != nil {
 		t.Fatal(err)
 	}
 	if got := installedConfiguredClients(s.cfg.Get()); len(got) != 2 || got[0].Kind != gamefiles.KindVK || got[1].Kind != gamefiles.KindBranch {
@@ -148,7 +120,7 @@ func TestRemoveMainClientKeepsOtherFoldersAndConfiguredPaths(t *testing.T) {
 func TestClearDownloadsRemovesPatchCache(t *testing.T) {
 	root := t.TempDir()
 	writeTree(t, root, map[string][]byte{"-gup-/awlauncher-cache/payload-1-2/a.7z": []byte("patch"), "-gup-/last.xml": []byte("x")})
-	if err := gameSession(t, root, true).clearDownloads(); err != nil {
+	if err := gameSession(t, root, true).ClearDownloads(); err != nil {
 		t.Fatal(err)
 	}
 	if _, err := os.Stat(filepath.Join(root, "-gup-", "awlauncher-cache")); err == nil {

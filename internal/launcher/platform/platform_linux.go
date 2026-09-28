@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"log"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -44,7 +45,17 @@ func ProtectedDirs() []string {
 func Protect(data []byte) ([]byte, error)   { return data, nil }
 func Unprotect(data []byte) ([]byte, error) { return data, nil }
 
-func OwnsConsole() bool { return false }
+func Language() string {
+	for _, env := range []string{"LC_ALL", "LC_MESSAGES", "LANG"} {
+		if v := os.Getenv(env); v != "" {
+			if strings.HasPrefix(strings.ToLower(v), "ru") {
+				return "ru"
+			}
+			return "en"
+		}
+	}
+	return "en"
+}
 
 func FixedDrives() []string {
 	roots := []string{HomeDir()}
@@ -159,7 +170,7 @@ func CloseGame(grace time.Duration) error {
 func OpenBrowser(link string) error {
 	cmd := exec.Command("xdg-open", link)
 	if err := cmd.Start(); err != nil {
-		fmt.Println("Open this link in your browser:", link)
+		log.Println("Open this link in your browser:", link)
 		return nil
 	}
 	go cmd.Wait()
@@ -233,7 +244,7 @@ func StartGame(exe string, args []string, dir string) (int, error) {
 	if err != nil {
 		return 0, err
 	}
-	fmt.Printf("Started through %s; its output goes to %s\n", filepath.Base(cmd.Path), logPath)
+	log.Printf("Started through %s; its output goes to %s\n", filepath.Base(cmd.Path), logPath)
 	go cmd.Wait()
 	return cmd.Process.Pid, nil
 }
@@ -244,6 +255,6 @@ func RunRedist(path string) error {
 		return err
 	}
 	defer cmd.Stdout.(io.Closer).Close()
-	fmt.Printf("Installing through %s; the first run may download Proton. Output: %s\n", filepath.Base(cmd.Path), logPath)
+	log.Printf("Installing through %s; the first run may download Proton. Output: %s\n", filepath.Base(cmd.Path), logPath)
 	return cmd.Run()
 }

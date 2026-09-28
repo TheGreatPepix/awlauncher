@@ -12,6 +12,7 @@ import (
 	"image"
 	"image/color"
 	"image/png"
+	"log"
 	"net"
 	"net/http"
 	"net/url"
@@ -164,7 +165,7 @@ func (b *Bridge) handle(w http.ResponseWriter, r *http.Request) {
 		codeOK := ValidCode(code)
 		stateOK := subtle.ConstantTimeCompare([]byte(state), []byte(b.state)) == 1
 		if !codeOK || !stateOK {
-			fmt.Println("Sign-in response rejected; still waiting.")
+			log.Println("Sign-in response rejected; still waiting.")
 		} else {
 			b.mu.Lock()
 			if !b.used {

@@ -1,8 +1,8 @@
 package cache
 
 import (
-	"fmt"
 	"io/fs"
+	"log"
 	"os"
 	"path/filepath"
 	"regexp"
@@ -46,14 +46,14 @@ func Cleanup(cacheRoot string, build int) {
 		path := filepath.Join(cacheRoot, name)
 		size := DirSize(path)
 		if err := os.RemoveAll(path); err != nil {
-			fmt.Printf("Could not remove old patch files %s: %v\n", path, err)
+			log.Printf("Could not remove old patch files %s: %v\n", path, err)
 			continue
 		}
 		freed += size
 		removed++
 	}
 	if removed > 0 {
-		fmt.Printf("Removed old patch files: %d folders, %.1f GiB freed.\n", removed, float64(freed)/(1<<30))
+		log.Printf("Removed old patch files: %d folders, %.1f GiB freed.\n", removed, float64(freed)/(1<<30))
 	}
 }
 

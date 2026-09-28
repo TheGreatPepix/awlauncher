@@ -2,7 +2,7 @@ package progress
 
 import (
 	"fmt"
-	"os"
+	"log"
 	"strings"
 	"sync"
 	"sync/atomic"
@@ -56,7 +56,6 @@ type progressSample struct {
 
 type progressBoard struct {
 	mu        sync.Mutex
-	live      bool
 	active    bool
 	pausable  atomic.Bool
 	gate      pauseGate
@@ -66,23 +65,14 @@ type progressBoard struct {
 	done      atomic.Int64
 	startDone int64
 	started   time.Time
-	lastPlain time.Time
+	lastLine  time.Time
 	tasks     []*progressTask
 	samples   []progressSample
-	drawn     int
 	stop      chan struct{}
 	stopped   chan struct{}
 }
 
-var ui = &progressBoard{live: enableVT()}
-
-var Default = ui
-
-func UsePlainOutput() {
-	ui.mu.Lock()
-	ui.live = false
-	ui.mu.Unlock()
-}
+var Default = &progressBoard{}
 
 type Snapshot struct {
 	Active   bool           `json:"active"`
@@ -125,8 +115,8 @@ func (b *progressBoard) Begin(title string, unit progressUnit, total, done int64
 	b.done.Store(done)
 	b.startDone = done
 	b.started = time.Now()
-	b.lastPlain = b.started
-	b.tasks, b.samples, b.drawn = nil, nil, 0
+	b.lastLine = b.started
+	b.tasks, b.samples = nil, nil
 	b.stop, b.stopped = make(chan struct{}), make(chan struct{})
 	b.active = true
 	b.pausable.Store(true)
@@ -145,7 +135,7 @@ func (b *progressBoard) loop(stop, stopped chan struct{}) {
 			return
 		case <-tick.C:
 			b.mu.Lock()
-			b.renderLocked()
+			b.sampleLocked()
 			b.mu.Unlock()
 		}
 	}
@@ -164,13 +154,7 @@ func (b *progressBoard) End() {
 	b.mu.Lock()
 	defer b.mu.Unlock()
 	b.tasks = nil
-	line := b.summaryLocked()
-	if b.live {
-		b.writeLocked([]string{line})
-		b.drawn = 0
-	} else {
-		fmt.Println(line)
-	}
+	log.Print(b.summaryLocked())
 	b.active = false
 }
 
@@ -200,20 +184,7 @@ func (b *progressBoard) finish(t *progressTask) {
 	}
 }
 
-func (b *progressBoard) Log(format string, args ...any) {
-	b.mu.Lock()
-	defer b.mu.Unlock()
-	if b.live && b.drawn > 0 {
-		fmt.Fprintf(os.Stdout, "\x1b[%dA\r\x1b[J", b.drawn)
-		b.drawn = 0
-	}
-	fmt.Printf(format+"\n", args...)
-	if b.live && b.active {
-		b.renderLocked()
-	}
-}
-
-func (b *progressBoard) renderLocked() {
+func (b *progressBoard) sampleLocked() {
 	if !b.active {
 		return
 	}
@@ -223,44 +194,15 @@ func (b *progressBoard) renderLocked() {
 	for len(b.samples) > 2 && now.Sub(b.samples[0].at) > 10*time.Second {
 		b.samples = b.samples[1:]
 	}
-	if !b.live {
-		if now.Sub(b.lastPlain) >= 10*time.Second {
-			fmt.Println(b.headlineLocked(done, false))
-			b.lastPlain = now
-		}
-		return
+	if now.Sub(b.lastLine) >= 10*time.Second {
+		log.Print(b.headlineLocked(done))
+		b.lastLine = now
 	}
-	lines := []string{b.headlineLocked(done, true)}
-	for _, t := range b.tasks {
-		lines = append(lines, taskLine(t))
-	}
-	b.writeLocked(lines)
 }
 
-func (b *progressBoard) writeLocked(lines []string) {
-	width := consoleWidth() - 1
-	var s strings.Builder
-	if b.drawn > 0 {
-		fmt.Fprintf(&s, "\x1b[%dA", b.drawn)
-	}
-	s.WriteString("\r")
-	for _, l := range lines {
-		s.WriteString("\x1b[2K")
-		s.WriteString(clipRight(l, width))
-		s.WriteString("\n")
-	}
-	s.WriteString("\x1b[J")
-	os.Stdout.WriteString(s.String())
-	b.drawn = len(lines)
-}
-
-func (b *progressBoard) headlineLocked(done int64, bar bool) string {
+func (b *progressBoard) headlineLocked(done int64) string {
 	frac := fraction(done, b.total)
-	parts := []string{fmt.Sprintf("%-12s", b.title)}
-	if bar {
-		parts = append(parts, drawBar(frac, 30))
-	}
-	parts = append(parts, fmt.Sprintf("%5.1f%%", 100*frac), b.amount(done, b.total))
+	parts := []string{fmt.Sprintf("%-12s", b.title), fmt.Sprintf("%5.1f%%", 100*frac), b.amount(done, b.total)}
 	if b.unit == unitBytes {
 		if speed := b.speedLocked(); speed > 0 {
 			parts = append(parts, formatBytes(int64(speed))+"/s")
@@ -310,27 +252,12 @@ func (b *progressBoard) amount(done, total int64) string {
 	return formatPair(done, total)
 }
 
-func taskLine(t *progressTask) string {
-	label := fmt.Sprintf("  %-32s", clipLeft(t.label, 32))
-	if t.total <= 0 {
-		return label
-	}
-	done := t.done.Load()
-	frac := fraction(done, t.total)
-	return fmt.Sprintf("%s  %s %5.1f%%  %s", label, drawBar(frac, 12), 100*frac, formatPair(done, t.total))
-}
-
 func fraction(done, total int64) float64 {
 	if total <= 0 {
 		return 1
 	}
 	f := float64(done) / float64(total)
 	return min(max(f, 0), 1)
-}
-
-func drawBar(frac float64, width int) string {
-	filled := int(frac * float64(width))
-	return "[" + strings.Repeat("█", filled) + strings.Repeat("░", width-filled) + "]"
 }
 
 func formatBytes(n int64) string {
@@ -369,20 +296,4 @@ func formatDuration(d time.Duration) string {
 		return fmt.Sprintf("%dm%02ds", m, s)
 	}
 	return fmt.Sprintf("%ds", s)
-}
-
-func clipRight(s string, width int) string {
-	r := []rune(s)
-	if width < 1 || len(r) <= width {
-		return s
-	}
-	return string(r[:width-1]) + "…"
-}
-
-func clipLeft(s string, width int) string {
-	r := []rune(s)
-	if len(r) <= width {
-		return s
-	}
-	return "…" + string(r[len(r)-width+1:])
 }

@@ -1,7 +1,6 @@
 package launcher
 
 import (
-	"bufio"
 	"encoding/base64"
 	"encoding/json"
 	"errors"
@@ -54,13 +53,21 @@ func TestFXLoginAndGameToken(t *testing.T) {
 	fxid.Base = srv.URL
 	defer func() { fxid.Base = old }()
 
-	p := prompter{in: bufio.NewReader(strings.NewReader("player@example.com\n654321\n12ab\n123 456\n"))}
-	acc, err := loginFX(p, srv.Client(), config.NewStore(config.Config{}), "", "")
+	ui := &fakeUI{answers: []string{"player@example.com", "654321", "12ab", "123 456"}}
+	s := &Session{ui: ui, cfg: config.NewStore(config.Config{}), client: srv.Client(), found: &foundGame{}}
+	acc, err := s.loginFX("", "")
 	if err != nil {
 		t.Fatal(err)
 	}
 	if !acc.IsFX() || acc.Email != "Player@Example.com" || acc.UserID >= 0 || acc.UserID != fxid.AccountID("player@example.com") {
 		t.Fatalf("account = %+v", acc)
+	}
+	var kinds []PromptKind
+	for _, p := range ui.asked {
+		kinds = append(kinds, p.Kind)
+	}
+	if fmt.Sprint(kinds) != fmt.Sprint([]PromptKind{PromptEmail, PromptCode, PromptCode, PromptCode}) {
+		t.Fatalf("prompts = %v", kinds)
 	}
 	token, err := fxGameToken(srv.Client(), acc)
 	if err != nil || token != fakeJWT(exp) {
@@ -69,7 +76,7 @@ func TestFXLoginAndGameToken(t *testing.T) {
 	if saved, _ := config.LoadRefreshToken(acc.UserID); saved != "refresh-2" {
 		t.Fatalf("saved refresh = %q", saved)
 	}
-	if _, err := fxGameToken(srv.Client(), acc); err != errNeedLogin {
+	if _, err := fxGameToken(srv.Client(), acc); err != ErrNeedLogin {
 		t.Fatalf("stale session: %v", err)
 	}
 	if _, err := config.LoadRefreshToken(acc.UserID); err == nil {
@@ -154,13 +161,5 @@ func TestFXActivateKey(t *testing.T) {
 	}
 	if _, err := fxActivateKey(srv.Client(), acc, "BAD"); err == nil || !strings.Contains(err.Error(), "Key not found") {
 		t.Fatalf("bad key error = %v", err)
-	}
-}
-
-func TestFirstWord(t *testing.T) {
-	for in, want := range map[string]string{"1 play": "1", "  Q ": "q", "": "", "-2": "-2"} {
-		if got := firstWord(in); got != want {
-			t.Errorf("firstWord(%q) = %q, want %q", in, got, want)
-		}
 	}
 }

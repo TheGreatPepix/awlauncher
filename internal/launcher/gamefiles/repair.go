@@ -1,7 +1,7 @@
 package gamefiles
 
 import (
-	"fmt"
+	"log"
 )
 
 func repairClientFiles(g Install, damaged []inventoryFile) error {
@@ -23,6 +23,6 @@ func repairClientFiles(g Install, damaged []inventoryFile) error {
 	if _, err := syncFiles(g.Root, set, syncOptions{Jobs: 3}); err != nil {
 		return err
 	}
-	fmt.Println("Client repair complete; downloaded files match the official manifest.")
+	log.Println("Client repair complete; downloaded files match the official manifest.")
 	return nil
 }

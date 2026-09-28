@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"hash"
 	"io"
+	"log"
 	"net/http"
 	"os"
 	"strings"
@@ -74,7 +75,7 @@ func syncFiles(root string, set fileSet, opt syncOptions) ([]remoteFile, error) 
 		fetch = append(fetch, f)
 	}
 	if reused > 0 {
-		fmt.Printf("Linked %s of files shared with the main install (no extra disk space).\n", progress.FormatBytes(reused))
+		log.Printf("Linked %s of files shared with the main install (no extra disk space).\n", progress.FormatBytes(reused))
 	}
 
 	if len(check) > 0 {
@@ -120,7 +121,7 @@ func syncFiles(root string, set fileSet, opt syncOptions) ([]remoteFile, error) 
 	if jobs < 1 {
 		jobs = 1
 	}
-	fmt.Printf("Downloading %d files (%s)...\n", len(fetch), progress.FormatBytes(total))
+	log.Printf("Downloading %d files (%s)...\n", len(fetch), progress.FormatBytes(total))
 	client := &http.Client{Timeout: 2 * time.Hour}
 	progress.Default.Begin("Downloading", progress.UnitBytes, total, 0)
 	err := parallel(fetch, jobs, func(f remoteFile) error {

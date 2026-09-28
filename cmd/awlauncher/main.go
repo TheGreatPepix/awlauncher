@@ -6,9 +6,9 @@ import (
 	"os"
 	"runtime"
 
-	"github.com/TheGreatPepix/awlauncher/internal/launcher"
+	"github.com/TheGreatPepix/awlauncher/internal/gui"
 )
 
 func init() { runtime.LockOSThread() }
 
-func main() { os.Exit(launcher.RunGUI()) }
+func main() { os.Exit(gui.Run()) }

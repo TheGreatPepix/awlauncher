@@ -40,7 +40,6 @@ jobs:
           echo "AW_VERSION=$version" >> "$GITHUB_ENV"
           stamp="-X github.com/TheGreatPepix/awlauncher/internal/launcher.Version=$version"
           go build -trimpath -ldflags "-s -w -H=windowsgui $stamp" -o dist/AWLauncher.exe ./cmd/awlauncher
-          go build -trimpath -ldflags "-s -w $stamp" -o dist/AWLauncherConsole.exe ./cmd/awlauncher-console
           ls -l dist
 
       - name: Installer
@@ -87,20 +86,6 @@ jobs:
       - name: Test
         run: go test ./...
 
-      - name: Build
-        run: |
-          mkdir dist
-          if [[ $GITHUB_REF == refs/tags/v* ]]; then version=$GITHUB_REF_NAME; else version=$(git describe --tags --match 'v*' --always); fi
-          echo "Version: $version"
-          CGO_ENABLED=0 go build -trimpath -ldflags "-s -w -X github.com/TheGreatPepix/awlauncher/internal/launcher.Version=$version" -o dist/awlauncher-linux-amd64 ./cmd/awlauncher-console
-          ls -l dist
-
-      - uses: actions/upload-artifact@v4
-        with:
-          name: AWLauncher-linux-${{ github.sha }}
-          path: dist/awlauncher-linux-amd64
-          if-no-files-found: error
-
   release:
     if: startsWith(github.ref, 'refs/tags/v')
     needs: [build, linux]
@@ -113,11 +98,6 @@ jobs:
           name: AWLauncher-${{ github.sha }}
           path: dist
 
-      - uses: actions/download-artifact@v4
-        with:
-          name: AWLauncher-linux-${{ github.sha }}
-          path: dist
-
       - name: Publish the release
         env:
           GH_TOKEN: ${{ github.token }}
@@ -125,4 +105,4 @@ jobs:
         run: |
           gh release view "$GITHUB_REF_NAME" > /dev/null 2>&1 ||
             gh release create "$GITHUB_REF_NAME" --title "$GITHUB_REF_NAME" --generate-notes
-          gh release upload "$GITHUB_REF_NAME" dist/*.exe dist/awlauncher-linux-amd64 --clobber
+          gh release upload "$GITHUB_REF_NAME" dist/*.exe --clobber

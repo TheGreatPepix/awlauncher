@@ -21,7 +21,7 @@ var (
 	procCryptProtectData         = crypt32.NewProc("CryptProtectData")
 	procCryptUnprotectData       = crypt32.NewProc("CryptUnprotectData")
 	procLocalFree                = kernel32.NewProc("LocalFree")
-	procGetConsoleProcessList    = kernel32.NewProc("GetConsoleProcessList")
+	procGetUserDefaultUILanguage = kernel32.NewProc("GetUserDefaultUILanguage")
 	procGetDiskFreeSpaceExW      = kernel32.NewProc("GetDiskFreeSpaceExW")
 	procGetDriveTypeW            = kernel32.NewProc("GetDriveTypeW")
 	procEnumWindows              = user32.NewProc("EnumWindows")
@@ -97,10 +97,12 @@ func userCrypt(input []byte, proc *windows.LazyProc) ([]byte, error) {
 func Protect(data []byte) ([]byte, error)   { return userCrypt(data, procCryptProtectData) }
 func Unprotect(data []byte) ([]byte, error) { return userCrypt(data, procCryptUnprotectData) }
 
-func OwnsConsole() bool {
-	var pids [2]uint32
-	n, _, _ := procGetConsoleProcessList.Call(uintptr(unsafe.Pointer(&pids[0])), 2)
-	return n == 1
+func Language() string {
+	lang, _, _ := procGetUserDefaultUILanguage.Call()
+	if lang&0x3ff == 0x19 {
+		return "ru"
+	}
+	return "en"
 }
 
 func FixedDrives() []string {

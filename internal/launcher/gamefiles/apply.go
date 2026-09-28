@@ -8,6 +8,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"log"
 	"os"
 	"path/filepath"
 	"strings"
@@ -323,7 +324,7 @@ func installPatch(game, stage, backup string, names []string, last []byte, patch
 					err = copyFile(r.backup, r.target)
 				}
 				if err != nil {
-					progress.Default.Log("ROLLBACK ERROR %s: %v", r.target, err)
+					log.Printf("ROLLBACK ERROR %s: %v", r.target, err)
 				}
 			}
 		}

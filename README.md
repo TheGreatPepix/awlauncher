@@ -2,7 +2,7 @@
 
 **English** · [Русский](README.ru.md)
 
-A standalone launcher for Armored Warfare, for Windows, with a console version for Linux and Steam Deck. It installs, updates and starts the game for **VK Play** (Russian servers) and **FX ID / Wishlist Games** (international servers) accounts from one window, and keeps several accounts ready to play. It is an unofficial fan project; see the [disclaimer](#disclaimer).
+A standalone launcher for Armored Warfare, for Windows. It installs, updates and starts the game for **VK Play** (Russian servers) and **FX ID / Wishlist Games** (international servers) accounts from one window, and keeps several accounts ready to play. It is an unofficial fan project; see the [disclaimer](#disclaimer).
 
 ## Features
 
@@ -11,14 +11,14 @@ A standalone launcher for Armored Warfare, for Windows, with a console version f
 - **One install for both services.** VK Play and the FX ID main branch share one game folder; the launcher switches the service settings before each start.
 - **Closed FX ID branches.** Activate a key, see the branches open to an account and choose which one it plays. A branch is installed next to the FX ID folder and reuses its files, so only the difference is downloaded.
 - **File check and repair.** Before each start the launcher checks that the client is complete and offers to download only missing or damaged files. A full check of every file can be run at any time.
-- **Game management.** See the installed clients and their versions, free the space taken by downloaded patches, remove a closed branch or uninstall the game.
+- **Game management.** See the installed clients and their versions, free the space taken by downloaded patches, remove a client or a closed branch.
 - **Works in the background.** While the game installs, you can rename or remove accounts, add new ones and manage branches of other accounts.
 - **Stays out of the way.** After the game starts, the launcher hides in the notification area. It can also close a running game, start with Windows and update itself.
 - **English and Russian.** The window follows the Windows language, or the one you choose.
 
 ## Requirements
 
-- Windows 10 or 11, 64-bit. On Linux, the console version runs on any 64-bit distribution; see [Linux and Steam Deck](#linux-and-steam-deck).
+- Windows 10 or 11, 64-bit. Earlier releases had a console version for Linux and Steam Deck; it is discontinued, and there is no Linux build for now.
 - Microsoft Edge WebView2 Runtime. It is part of Windows 11 and current Windows 10; if it is missing, the launcher offers the download page.
 - About 70 GiB of free space for a new install.
 
@@ -44,51 +44,13 @@ A standalone launcher for Armored Warfare, for Windows, with a console version f
 
 **Game.** **Clients** lists a client for every service you have an account on: VK Play for VK Play accounts, the FX ID main branch and closed branches for FX ID accounts; an installed client stays listed even without an account so you can remove it. Each client shows its version and folder. A client that is not installed has **Download**; an installed one has **Check files**, which restores files that differ from the official list, even when mods are allowed (FX ID needs an FX ID account). The **⋮** menu holds **Check for updates**, which looks for new patches or a new branch version and offers to install them, **Open folder**, **Change folder…**, and **Remove client**, which removes that installation folder; closed branches in neighboring folders stay. VK Play and FX ID each have their own folder; a closed branch stays next to the FX ID client unless you choose another folder. **Allow mods** keeps existing modified files during normal launches while still downloading missing files; official game updates may replace them. **Downloaded patches** shows their size, and **Delete** removes them. Files the launcher did not install, such as screenshots, are kept unless you agree to delete the whole folder.
 
-**Settings.** Open the launcher's data folder, choose whether AWLauncher starts with Windows (**Off**, **Window**, or **Tray** for the notification area), choose a light or dark theme and a color, and the language: **Auto** follows Windows (Russian for a Russian Windows, English otherwise), or pick **English** or **Русский**. The language covers the window and the tray menu; the logs stay in English. **Version** shows the launcher version; **Check for updates** looks for a newer [release](../../releases) on GitHub. The launcher also checks once at start and marks **Settings** with a dot when an update is out. **Update** downloads the new `AWLauncher.exe` (and `AWLauncherConsole.exe`, if it is next to it), checks it, puts it in place of the old one and restarts; accounts and settings stay. If the launcher cannot write to its folder, it offers the release page instead.
+**Settings.** Open the launcher's data folder, choose whether AWLauncher starts with Windows (**Off**, **Window**, or **Tray** for the notification area), choose a light or dark theme and a color, and the language: **Auto** follows Windows (Russian for a Russian Windows, English otherwise), or pick **English** or **Русский**. The language covers the window and the tray menu; the logs stay in English. **Version** shows the launcher version; **Check for updates** looks for a newer [release](../../releases) on GitHub. The launcher also checks once at start and marks **Settings** with a dot when an update is out. **Update** downloads the new `AWLauncher.exe`, checks it, puts it in place of the old one and restarts; accounts and settings stay. If the launcher cannot write to its folder, it offers the release page instead.
 
 **Running the game.** After the game starts, the launcher hides in the notification area. Click its icon to open it, click again to hide it; right-click it to play the main account, the one marked with a pin (for example **Play Tanker · VK Play**), or for **Open AWLauncher** and **Exit**. Closing the window also hides it. While the game runs, **Close game** asks it to close and ends it after 10 seconds.
 
 **Several things at once.** One install, update or start runs at a time. Meanwhile you can rename any account, and add, remove, or manage branches of the other accounts. When two tasks ask something at the same time, their dialogs wait for each other, and each names the task that asks.
 
 Only one copy of the launcher runs at a time; starting another brings the open window forward.
-
-### Console version
-
-`AWLauncherConsole.exe` has the same features as a text menu, for scripts and troubleshooting:
-
-| Input | Action |
-| --- | --- |
-| Enter | play the last used account |
-| `N` | play account number N |
-| `+` | add an account |
-| `-N` | remove account N |
-| `r [N]` | rename an account |
-| `b [N]` | list FX ID branches and choose one |
-| `k [N]` | activate an FX ID key |
-| `g` | game: check files, delete downloaded patches, remove a branch, uninstall |
-| `x` | close the running game |
-| `q` | quit |
-
-`AWLauncherConsole.exe play [ACCOUNT]` asks nothing: it installs updates, repairs files, starts the game for ACCOUNT (a number from the menu, a name or a login; the last used account without it) and waits until the game exits. It never starts a new install or a sign-in; do those in the menu. `AWLauncherConsole.exe version` prints the version.
-
-### Linux and Steam Deck
-
-On Linux the launcher is the console version only: `awlauncher-linux-amd64` from the [latest release](../../releases/latest). The launcher itself runs natively; the game, a Windows program, runs through [umu-launcher](https://github.com/Open-Wine-Components/umu-launcher) (Proton outside Steam) or, without it, Wine. Whether the game works under Proton is up to the game; the launcher only starts it.
-
-1. Install umu-launcher as its README describes, so that `umu-run` is on the `PATH`. SteamOS keeps its system read-only, so on a Steam Deck use a build that installs into your home folder, such as the zipapp from the umu-launcher releases unpacked into `~/.local/bin`.
-2. Make the file executable and start it in a terminal:
-   ```bash
-   chmod +x awlauncher-linux-amd64 && ./awlauncher-linux-amd64
-   ```
-   Add accounts and install the game or choose an existing folder, as in the menu above. The suggested location is `~/Games/ArmoredWarfare`; press Enter to use it or type another path. VK Play sign-in opens in the default browser.
-3. For Game Mode, add the file to Steam as a non-Steam game and set its launch options to `play` (or `play ACCOUNT`). Steam then shows the game as running until it exits. Updates are installed before the start without a window, so install big updates in Desktop Mode first.
-
-Details:
-
-- Data lives in `~/.local/share/awlauncher` (or `$XDG_DATA_HOME/awlauncher`). Saved sign-ins are files readable only by your user; Linux has no DPAPI.
-- The Wine prefix is `~/.local/share/awlauncher/prefix` unless `WINEPREFIX` is set. umu-launcher picks the Proton version; set `PROTONPATH=GE-Proton` for the latest GE-Proton. The output of Proton or Wine goes to `~/.local/share/awlauncher/game.log`.
-- `AWLAUNCHER_RUNNER` replaces the runner, for example `AWLAUNCHER_RUNNER="umu-run"` or a path to `wine`.
-- Linux file systems tell `Bin64` from `bin64`; the launcher keeps the case of the files that are already there, so patches made on Windows land on the right files.
 
 ## Where data is kept
 
@@ -127,19 +89,15 @@ go build -ldflags '-H=windowsgui' -o AWLauncher.exe ./cmd/awlauncher
 Such a build calls itself a development build and does not update itself. To give it a version, add `-X github.com/TheGreatPepix/awlauncher/internal/launcher.Version=v1.2.3` to `-ldflags`; GitHub Actions does that with the output of `git describe --tags`.
 
 ```powershell
-go build -o AWLauncherConsole.exe ./cmd/awlauncher-console
-```
-
-```powershell
 go test ./...
 ```
 
-GitHub Actions builds and tests both executables on every push and pull request, builds the installer from `installer/awlauncher.iss` with [Inno Setup 6](https://jrsoftware.org/isinfo.php) and attaches all three to the run. To build the installer yourself, put both executables into `dist` and run `ISCC.exe -DAppVersion=1.2.3 -DFileVersion=1.2.3.0 installer\awlauncher.iss`. Pushing a tag such as `v1.0.0`, or publishing a release for a new tag, attaches them to that release. The launcher compares its version with the latest release, so tags must look like `v1.2.3`; a tag with a suffix, such as `v1.2.3-rc1`, is never offered as an update.
+GitHub Actions builds and tests the launcher on every push and pull request, also runs the tests on Linux so the core stays portable, builds the installer from `installer/awlauncher.iss` with [Inno Setup 6](https://jrsoftware.org/isinfo.php) and attaches both files to the run. To build the installer yourself, put `AWLauncher.exe` into `dist` and run `ISCC.exe -DAppVersion=1.2.3 -DFileVersion=1.2.3.0 installer\awlauncher.iss`. Pushing a tag such as `v1.0.0`, or publishing a release for a new tag, attaches them to that release. The launcher compares its version with the latest release, so tags must look like `v1.2.3`; a tag with a suffix, such as `v1.2.3-rc1`, is never offered as an update.
 
-The window is a web page shown in WebView2; its files are in `internal/launcher/ui` and are built into the executable. Opened in an ordinary browser, `index.html` runs a demo with sample accounts, which is handy for design work. Set `AWLAUNCHER_DEVTOOLS=1` to get the developer tools in the launcher window. The icon is the file `internal/appicon/awlauncher.ico`; the window, its side bar and the tray use it as is, and nothing else draws the icon. To change it, replace that file (sizes from 16 to 256 px) and run `go generate ./cmd/...`, which also embeds it into the executables; run the same after changing the application manifest.
+The window is a web page shown in WebView2; its files are in `internal/gui/ui` and are built into the executable. Opened in an ordinary browser, `index.html` runs a demo with sample accounts, which is handy for design work. Set `AWLAUNCHER_DEVTOOLS=1` to get the developer tools in the launcher window. The icon is the file `internal/appicon/awlauncher.ico`; the window, its side bar and the tray use it as is, and nothing else draws the icon. To change it, replace that file (sizes from 16 to 256 px) and run `go generate ./cmd/...`, which also embeds it into the executables; run the same after changing the application manifest.
 
 The launcher uses [bodgit/sevenzip](https://github.com/bodgit/sevenzip), [go-deltasync/vcdiff](https://github.com/go-deltasync/vcdiff), [jchv/go-webview2](https://github.com/jchv/go-webview2) and [fyne.io/systray](https://github.com/fyne-io/systray). The interface font is Rubik, under the SIL Open Font License.
 
 ## License
 
-AWLauncher is released under the [MIT License](LICENSE). The Rubik font keeps its own license, the SIL Open Font License, in `internal/launcher/ui/fonts/Rubik-OFL.txt`.
+AWLauncher is released under the [MIT License](LICENSE). The Rubik font keeps its own license, the SIL Open Font License, in `internal/gui/ui/fonts/Rubik-OFL.txt`.

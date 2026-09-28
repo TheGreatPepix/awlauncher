@@ -7,6 +7,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"log"
 	"net/http"
 	"os"
 	"path/filepath"
@@ -184,7 +185,7 @@ func VerifyVKFiles(p Asker, g Install) error {
 	if err != nil {
 		return err
 	}
-	fmt.Printf("Checking all VK Play files by MD5...\n")
+	log.Printf("Checking all VK Play files by MD5...\n")
 	_, err = syncFiles(g.Root, set, syncOptions{
 		Jobs: 3,
 		Confirm: func(bad []remoteFile, size int64) error {

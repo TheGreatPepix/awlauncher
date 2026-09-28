@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"log"
 	"net/http"
 	"net/url"
 	"os"
@@ -67,7 +68,7 @@ func SyncBranch(client *http.Client, rel BranchRelease, mainRoot, root string, a
 	if !prev.Dirty && prev.ManifestSHA256 != "" && strings.EqualFold(prev.ManifestSHA256, rel.ManifestSHA256) && branchFilesPresent(root, prev.Files, allowMods) {
 		return prev, nil
 	}
-	fmt.Printf("Preparing %s %s (build %d) in %s...\n", branch, rel.Version, rel.Build, root)
+	log.Printf("Preparing %s %s (build %d) in %s...\n", branch, rel.Version, rel.Build, root)
 	data, err := catalog.Fetch(client, rel.ManifestURL, 64<<20)
 	if err != nil {
 		return BranchState{}, fmt.Errorf("file manifest: %w", err)
@@ -145,7 +146,7 @@ func SyncBranch(client *http.Client, rel BranchRelease, mainRoot, root string, a
 	if err := fileutil.WriteAtomic(branchStatePath(root), out); err != nil {
 		return BranchState{}, err
 	}
-	fmt.Printf("%s %s is ready.\n", branch, state.Version)
+	log.Printf("%s %s is ready.\n", branch, state.Version)
 	return state, nil
 }
 func linkFromMain(mainRoot string, f remoteFile, dst string) bool {

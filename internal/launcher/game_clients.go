@@ -15,29 +15,27 @@ import (
 	"github.com/TheGreatPepix/awlauncher/internal/launcher/platform"
 )
 
-type gameInfo struct {
-	Type        string             `json:"type"`
+type GameInfo struct {
 	Dir         string             `json:"dir"`
 	Clients     []gamefiles.Client `json:"clients"`
 	Downloads   int64              `json:"downloads"`
 	Free        int64              `json:"free"`
 	BranchPaths map[string]string  `json:"branchPaths,omitempty"`
 }
-type availableClient struct {
+type AvailableClient struct {
 	Kind    string `json:"kind"`
 	Branch  string `json:"branch,omitempty"`
 	Account string `json:"account"`
 	Version string `json:"version,omitempty"`
 }
-type availableClients struct {
-	Type     string            `json:"type"`
-	Clients  []availableClient `json:"clients"`
+type AvailableClients struct {
+	Clients  []AvailableClient `json:"clients"`
 	Failed   bool              `json:"failed,omitempty"`
 	VKFailed bool              `json:"vkFailed,omitempty"`
 }
 
-func availableGameClients(s *session) availableClients {
-	out := availableClients{Type: "availableClients", Clients: []availableClient{}}
+func (s *Session) AvailableClients() AvailableClients {
+	out := AvailableClients{Clients: []AvailableClient{}}
 	seen := map[string]bool{}
 	for _, acc := range s.cfg.Get().Accounts {
 		kind := gamefiles.KindVK
@@ -45,7 +43,7 @@ func availableGameClients(s *session) availableClients {
 			kind = gamefiles.KindFX
 		} else {
 			if !seen[kind] {
-				client := availableClient{Kind: kind, Account: strconv.FormatInt(acc.UserID, 10)}
+				client := AvailableClient{Kind: kind, Account: strconv.FormatInt(acc.UserID, 10)}
 				if distrib, err := catalog.LatestDistrib(s.client); err == nil {
 					client.Version = "build " + strconv.Itoa(distrib.Destination)
 				} else {
@@ -77,13 +75,17 @@ func availableGameClients(s *session) availableClients {
 			if strings.EqualFold(b.Name, gamefiles.DefaultBranch) {
 				clientKind = gamefiles.KindFX
 			}
-			out.Clients = append(out.Clients, availableClient{Kind: clientKind, Branch: b.Name, Account: strconv.FormatInt(acc.UserID, 10), Version: b.Version})
+			out.Clients = append(out.Clients, AvailableClient{Kind: clientKind, Branch: b.Name, Account: strconv.FormatInt(acc.UserID, 10), Version: b.Version})
 			seen[k] = true
 		}
 	}
 	return out
 }
-func (s *session) downloadClient(acc config.Account, kind, branch string) error {
+func (s *Session) DownloadClient(acc config.Account, kind, branch string) error {
+	return s.withLogin(acc, func(acc config.Account) error { return s.downloadClient(acc, kind, branch) })
+}
+
+func (s *Session) downloadClient(acc config.Account, kind, branch string) error {
 	if err := gamefiles.EnsureGameClosed(); err != nil {
 		return err
 	}
@@ -95,10 +97,10 @@ func (s *session) downloadClient(acc config.Account, kind, branch string) error 
 		if err != nil {
 			return err
 		}
-		if err := gamefiles.InstallVK(s.p, root); err != nil {
+		if err := gamefiles.InstallVK(s.ui, root); err != nil {
 			return err
 		}
-		s.p.Notify("VK Play is installed")
+		s.ui.Notify("VK Play is installed")
 		return nil
 	}
 	if !acc.IsFX() || !fxid.ValidBranchName(branch) {
@@ -127,7 +129,7 @@ func (s *session) downloadClient(acc config.Account, kind, branch string) error 
 		if err != nil {
 			return err
 		}
-		_, err = syncFXClient(s.client, &s.p, acc, branch, root, "", true, cfg.AllowMods)
+		_, err = s.syncFX(acc, branch, root, "", true, cfg.AllowMods)
 		return err
 	}
 	if cfg.FXGame == "" && cfg.BranchGames[strings.ToLower(branch)] == "" {
@@ -136,11 +138,11 @@ func (s *session) downloadClient(acc config.Account, kind, branch string) error 
 		}
 		cfg = s.cfg.Get()
 	}
-	_, err = syncFXClient(s.client, &s.p, acc, branch, cfg.BranchDir(branch), cfg.FXGame, true, cfg.AllowMods)
+	_, err = s.syncFX(acc, branch, cfg.BranchDir(branch), cfg.FXGame, true, cfg.AllowMods)
 	return err
 }
-func describeGame(root string) gameInfo {
-	info := gameInfo{Type: "gameInfo", Dir: root, Clients: []gamefiles.Client{}}
+func describeGame(root string) GameInfo {
+	info := GameInfo{Dir: root, Clients: []gamefiles.Client{}}
 	if root == "" {
 		return info
 	}
@@ -154,7 +156,9 @@ func describeGame(root string) gameInfo {
 	info.Free, _ = platform.DiskFree(root)
 	return info
 }
-func describeConfiguredGame(cfg config.Config) gameInfo {
+func (s *Session) GameInfo() GameInfo { return describeConfiguredGame(s.cfg.Get()) }
+
+func describeConfiguredGame(cfg config.Config) GameInfo {
 	root := cfg.Game
 	if root == "" {
 		root = cfg.FXGame

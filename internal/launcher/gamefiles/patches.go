@@ -3,6 +3,7 @@ package gamefiles
 import (
 	"errors"
 	"fmt"
+	"log"
 	"net/http"
 	"os"
 	"path/filepath"
@@ -34,7 +35,7 @@ func InstallPatches(gameRoot string, patches []patchInfo) error {
 		if p.Source != build {
 			return errors.New("catalog patch sequence is inconsistent")
 		}
-		fmt.Printf("\n=== Patch %d -> %d ===\n", p.Source, p.Destination)
+		log.Printf("\n=== Patch %d -> %d ===\n", p.Source, p.Destination)
 		meta, err := fetchTorrent(client, p.TorrentURL, p.TorrentSHA1)
 		if err != nil {
 			return err
@@ -55,7 +56,7 @@ func InstallPatches(gameRoot string, patches []patchInfo) error {
 		if err != nil {
 			return err
 		}
-		fmt.Printf("Files built and verified: %d\n", len(names))
+		log.Printf("Files built and verified: %d\n", len(names))
 		backup, err := os.MkdirTemp(cacheRoot, fmt.Sprintf("backup-%d-%d-", p.Source, p.Destination))
 		if err != nil {
 			return err
@@ -63,7 +64,7 @@ func InstallPatches(gameRoot string, patches []patchInfo) error {
 		if err := installPatch(gameRoot, stage, backup, names, last, p, manifest); err != nil {
 			return err
 		}
-		fmt.Printf("Patch %d installed. Backups: %s\n", p.Destination, backup)
+		log.Printf("Patch %d installed. Backups: %s\n", p.Destination, backup)
 		build, last, err = CurrentBuild(gameRoot)
 		if err != nil {
 			return err

@@ -4,7 +4,6 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
-	"strconv"
 	"strings"
 	"time"
 
@@ -13,7 +12,7 @@ import (
 	"github.com/TheGreatPepix/awlauncher/internal/launcher/gamefiles"
 )
 
-func (s *session) findClient(kind, branch string) (gamefiles.Client, error) {
+func (s *Session) FindClient(kind, branch string) (gamefiles.Client, error) {
 	root := s.cfg.Get().Game
 	for _, c := range installedConfiguredClients(s.cfg.Get()) {
 		if c.Kind == kind && (kind != gamefiles.KindBranch || strings.EqualFold(c.Branch, branch)) {
@@ -22,47 +21,7 @@ func (s *session) findClient(kind, branch string) (gamefiles.Client, error) {
 	}
 	return gamefiles.Client{}, fmt.Errorf("that client is not installed in %s", root)
 }
-func (s *session) chooseClient(question string) (gamefiles.Client, error) {
-	root := s.cfg.Get().Game
-	clients := installedConfiguredClients(s.cfg.Get())
-	switch len(clients) {
-	case 0:
-		return gamefiles.Client{}, fmt.Errorf("the game is not installed in %s", root)
-	case 1:
-		return clients[0], nil
-	}
-	for i, c := range clients {
-		s.p.Sayf("  %d  %s, %s\n", i+1, c.Name(), c.Version)
-	}
-	n, err := strconv.Atoi(firstWord(s.p.line(question)))
-	if err != nil || n < 1 || n > len(clients) {
-		return gamefiles.Client{}, errQuit
-	}
-	return clients[n-1], nil
-}
-func (s *session) chooseMainClient() (gamefiles.Client, error) {
-	var clients []gamefiles.Client
-	for _, c := range installedConfiguredClients(s.cfg.Get()) {
-		if c.Kind != gamefiles.KindBranch {
-			clients = append(clients, c)
-		}
-	}
-	if len(clients) == 0 {
-		return gamefiles.Client{}, errors.New("no main client is installed")
-	}
-	if len(clients) == 1 {
-		return clients[0], nil
-	}
-	for i, c := range clients {
-		s.p.Sayf("  %d  %s, %s: %s\n", i+1, c.Name(), c.Version, c.Dir)
-	}
-	n, err := strconv.Atoi(firstWord(s.p.line("Client number: ")))
-	if err != nil || n < 1 || n > len(clients) {
-		return gamefiles.Client{}, errQuit
-	}
-	return clients[n-1], nil
-}
-func (s *session) verifyClient(c gamefiles.Client) error {
+func (s *Session) VerifyClient(c gamefiles.Client) error {
 	if err := gamefiles.EnsureGameClosed(); err != nil {
 		return err
 	}
@@ -77,20 +36,19 @@ func (s *session) verifyClient(c gamefiles.Client) error {
 		return err
 	}
 	root := s.cfg.Get().FXGame
-	state, err := syncFXClient(s.client, &s.p, acc, c.Branch, c.Dir, root, false, false)
-	if errors.Is(err, errNeedLogin) {
-		if acc, err = s.relogin(acc); err != nil {
-			return err
-		}
-		state, err = syncFXClient(s.client, &s.p, acc, c.Branch, c.Dir, root, false, false)
-	}
+	var state gamefiles.BranchState
+	err := s.withLogin(acc, func(acc config.Account) error {
+		var err error
+		state, err = s.syncFX(acc, c.Branch, c.Dir, root, false, false)
+		return err
+	})
 	if err != nil {
 		return err
 	}
-	s.p.Notify(fmt.Sprintf("%s %s: all files are checked", c.Name(), state.Version))
+	s.ui.Notify(fmt.Sprintf("%s %s: all files are checked", c.Name(), state.Version))
 	return nil
 }
-func (s *session) verifyVK(root string) error {
+func (s *Session) verifyVK(root string) error {
 	g, err := gamefiles.Open(root)
 	if err != nil {
 		return err
@@ -100,9 +58,9 @@ func (s *session) verifyVK(root string) error {
 		return fmt.Errorf("update check: %w", err)
 	}
 	if len(patches) > 0 {
-		s.p.Sayf("Update available: %d -> %d. Files are checked against the latest build.\n", g.Build, latest)
-		if !s.p.Yes("Install the update first?", true) {
-			return errQuit
+		s.ui.Sayf("Update available: %d -> %d. Files are checked against the latest build.", g.Build, latest)
+		if !s.ui.Yes("Install the update first?", true) {
+			return ErrCancelled
 		}
 		if err := gamefiles.InstallPatches(root, patches); err != nil {
 			return fmt.Errorf("update failed: %w", err)
@@ -112,16 +70,16 @@ func (s *session) verifyVK(root string) error {
 		}
 	}
 	s.found.game = &g
-	if err := gamefiles.VerifyVKFiles(s.p, g); err != nil {
+	if err := gamefiles.VerifyVKFiles(s.ui, g); err != nil {
 		return err
 	}
-	if err := gamefiles.VerifyBeforeLaunch(s.p, g, false); err != nil {
+	if err := gamefiles.VerifyBeforeLaunch(s.ui, g, false); err != nil {
 		return err
 	}
-	s.p.Notify(fmt.Sprintf("VK Play build %d: all files are checked", g.Build))
+	s.ui.Notify(fmt.Sprintf("VK Play build %d: all files are checked", g.Build))
 	return nil
 }
-func (s *session) fxAccountFor(branch string) (config.Account, bool) {
+func (s *Session) fxAccountFor(branch string) (config.Account, bool) {
 	want := branch
 	if want == gamefiles.DefaultBranch {
 		want = ""
