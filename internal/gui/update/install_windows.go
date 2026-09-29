@@ -93,6 +93,9 @@ func Install(client *http.Client, current string) (string, error) {
 			for _, rest := range files[i:] {
 				os.Remove(rest.next())
 			}
+			if fileBusy(err) {
+				return "", fmt.Errorf("cannot replace %s: %w; another program, often an antivirus scan, keeps the new file open, so try again in a minute", f.path, err)
+			}
 			return "", fmt.Errorf("cannot replace %s: %w", f.path, err)
 		}
 	}
@@ -102,17 +105,40 @@ func Install(client *http.Client, current string) (string, error) {
 }
 
 func swapFile(f updateFile) error {
-	if err := os.Remove(f.previous()); err != nil && !errors.Is(err, fs.ErrNotExist) {
+	err := whenFree(func() error {
+		if err := os.Remove(f.previous()); err != nil && !errors.Is(err, fs.ErrNotExist) {
+			return err
+		}
+		return nil
+	})
+	if err != nil {
 		return err
 	}
-	if err := os.Rename(f.path, f.previous()); err != nil {
+	if err := whenFree(func() error { return os.Rename(f.path, f.previous()) }); err != nil {
 		return err
 	}
-	if err := os.Rename(f.next(), f.path); err != nil {
-		_ = os.Rename(f.previous(), f.path)
+	if err := whenFree(func() error { return os.Rename(f.next(), f.path) }); err != nil {
+		_ = whenFree(func() error { return os.Rename(f.previous(), f.path) })
 		return err
 	}
 	return nil
+}
+
+var busyWait = 15 * time.Second
+
+func whenFree(op func() error) error {
+	deadline := time.Now().Add(busyWait)
+	for {
+		err := op()
+		if err == nil || !fileBusy(err) || time.Now().After(deadline) {
+			return err
+		}
+		time.Sleep(250 * time.Millisecond)
+	}
+}
+
+func fileBusy(err error) bool {
+	return errors.Is(err, windows.ERROR_SHARING_VIOLATION) || errors.Is(err, windows.ERROR_LOCK_VIOLATION) || errors.Is(err, windows.ERROR_ACCESS_DENIED)
 }
 
 func StartUpdated(exe string, allowForeground func(int)) error {
@@ -130,13 +156,41 @@ func AfterUpdate(args []string) bool {
 		return false
 	}
 	if pid, err := strconv.ParseUint(args[2], 10, 32); err == nil {
-		if h, err := windows.OpenProcess(windows.SYNCHRONIZE, false, uint32(pid)); err == nil {
-			windows.WaitForSingleObject(h, 20_000)
-			windows.CloseHandle(h)
-		}
+		waitForPrevious(uint32(pid))
 	}
 	go removePreviousFiles()
 	return true
+}
+
+func waitForPrevious(pid uint32) {
+	h, err := windows.OpenProcess(windows.SYNCHRONIZE|windows.PROCESS_TERMINATE|windows.PROCESS_QUERY_LIMITED_INFORMATION, false, pid)
+	if err != nil {
+		h, err = windows.OpenProcess(windows.SYNCHRONIZE, false, pid)
+		if err != nil {
+			return
+		}
+	}
+	defer windows.CloseHandle(h)
+	if event, _ := windows.WaitForSingleObject(h, 20_000); event != uint32(windows.WAIT_TIMEOUT) || !runsLauncher(h) {
+		return
+	}
+	if windows.TerminateProcess(h, 1) == nil {
+		windows.WaitForSingleObject(h, 5_000)
+	}
+}
+
+func runsLauncher(h windows.Handle) bool {
+	exe, err := SelfPath()
+	if err != nil {
+		return false
+	}
+	buf := make([]uint16, windows.MAX_LONG_PATH)
+	size := uint32(len(buf))
+	if windows.QueryFullProcessImageName(h, 0, &buf[0], &size) != nil {
+		return false
+	}
+	image := windows.UTF16ToString(buf[:size])
+	return strings.EqualFold(image, exe) || strings.EqualFold(image, updateFile{path: exe}.previous())
 }
 
 func removePreviousFiles() {

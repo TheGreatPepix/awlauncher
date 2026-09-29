@@ -246,6 +246,7 @@ func (h *winHost) hideWindow() {
 
 func (h *winHost) exit() {
 	h.exiting = true
+	time.AfterFunc(10*time.Second, func() { os.Exit(0) })
 	h.win.destroy()
 }
 
