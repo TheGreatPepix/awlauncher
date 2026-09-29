@@ -13,10 +13,10 @@ import (
 	"path/filepath"
 	"strconv"
 	"strings"
-	"sync"
 
 	"github.com/TheGreatPepix/awlauncher/internal/download"
 	"github.com/TheGreatPepix/awlauncher/internal/progress"
+	"github.com/TheGreatPepix/awlauncher/internal/workers"
 )
 
 type bdecode struct {
@@ -236,14 +236,13 @@ func (t Meta) fetchFiles(client *http.Client, root string, jobs int) error {
 	if err := os.MkdirAll(root, 0755); err != nil {
 		return err
 	}
-	if jobs < 1 {
-		jobs = 1
-	}
+	var files []File
 	var total, done int64
 	for _, file := range t.Files {
 		if file.Padding {
 			continue
 		}
+		files = append(files, file)
 		total += file.Size
 		if st, err := os.Stat(filepath.Join(root, filepath.FromSlash(file.Name))); err == nil && st.Size() == file.Size {
 			done += file.Size
@@ -251,28 +250,14 @@ func (t Meta) fetchFiles(client *http.Client, root string, jobs int) error {
 	}
 	progress.Default.Begin("Downloading", progress.UnitBytes, total, done)
 	defer progress.Default.End()
-	sem := make(chan struct{}, jobs)
-	var wg sync.WaitGroup
-	var once sync.Once
-	var firstErr error
-	for _, file := range t.Files {
-		if file.Padding {
-			continue
+	return workers.Each(files, jobs, func(file File) error {
+		dst := filepath.Join(root, filepath.FromSlash(file.Name))
+		u := t.Webseed + url.PathEscape(t.Name) + "/" + file.Name
+		if err := download.File(client, u, dst, file.Name, file.Size); err != nil {
+			return fmt.Errorf("%s: %w", file.Name, err)
 		}
-		sem <- struct{}{}
-		wg.Add(1)
-		go func() {
-			defer wg.Done()
-			defer func() { <-sem }()
-			dst := filepath.Join(root, filepath.FromSlash(file.Name))
-			u := t.Webseed + url.PathEscape(t.Name) + "/" + file.Name
-			if err := download.File(client, u, dst, file.Name, file.Size); err != nil {
-				once.Do(func() { firstErr = fmt.Errorf("%s: %w", file.Name, err) })
-			}
-		}()
-	}
-	wg.Wait()
-	return firstErr
+		return nil
+	})
 }
 
 type zeroReader struct{}

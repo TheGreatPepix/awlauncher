@@ -9,6 +9,7 @@ import (
 	"path/filepath"
 	"time"
 
+	"github.com/TheGreatPepix/awlauncher/internal/download"
 	"github.com/TheGreatPepix/awlauncher/internal/platform"
 )
 
@@ -40,7 +41,7 @@ func InstallPatches(gameRoot string, patches []patchInfo) error {
 			return err
 		}
 		payload := filepath.Join(cacheRoot, fmt.Sprintf("payload-%d-%d", p.Source, p.Destination))
-		if err := meta.Download(&http.Client{Timeout: 2 * time.Hour}, payload, patchJobs); err != nil {
+		if err := meta.Download(&http.Client{Timeout: 2 * time.Hour, Transport: download.Transport}, payload, patchJobs); err != nil {
 			return err
 		}
 		manifest, err := loadManifest(payload, p)

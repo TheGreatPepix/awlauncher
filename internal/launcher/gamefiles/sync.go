@@ -16,6 +16,7 @@ import (
 	"github.com/TheGreatPepix/awlauncher/internal/download"
 	"github.com/TheGreatPepix/awlauncher/internal/platform"
 	"github.com/TheGreatPepix/awlauncher/internal/progress"
+	"github.com/TheGreatPepix/awlauncher/internal/workers"
 )
 
 type remoteFile struct {
@@ -81,7 +82,7 @@ func syncFiles(root string, set fileSet, opt syncOptions) ([]remoteFile, error) 
 	if len(check) > 0 {
 		var mu sync.Mutex
 		progress.Default.Begin("Checking", progress.UnitBytes, checkSize, 0)
-		err := parallel(check, 2, func(f remoteFile) error {
+		err := workers.Each(check, 2, func(f remoteFile) error {
 			dst, _ := SafePath(root, f.Path)
 			task := progress.Default.Start(f.Path, f.Size)
 			ok, err := fileMatches(dst, f.Size, f.Hash, set.NewHash, task)
@@ -122,9 +123,9 @@ func syncFiles(root string, set fileSet, opt syncOptions) ([]remoteFile, error) 
 		jobs = 1
 	}
 	log.Printf("Downloading %d files (%s)...\n", len(fetch), progress.FormatBytes(total))
-	client := &http.Client{Timeout: 2 * time.Hour}
+	client := &http.Client{Timeout: 2 * time.Hour, Transport: download.Transport}
 	progress.Default.Begin("Downloading", progress.UnitBytes, total, 0)
-	err := parallel(fetch, jobs, func(f remoteFile) error {
+	err := workers.Each(fetch, jobs, func(f remoteFile) error {
 		dst, _ := SafePath(root, f.Path)
 		for attempt := 0; attempt < 2; attempt++ {
 			if err := os.Remove(dst); err != nil && !errors.Is(err, os.ErrNotExist) {
@@ -176,24 +177,4 @@ func fileMatches(path string, size int64, want string, newHash func() hash.Hash,
 		return false, err
 	}
 	return strings.EqualFold(hex.EncodeToString(h.Sum(nil)), want), nil
-}
-
-func parallel[T any](items []T, jobs int, fn func(T) error) error {
-	sem := make(chan struct{}, jobs)
-	var wg sync.WaitGroup
-	var once sync.Once
-	var first error
-	for _, it := range items {
-		sem <- struct{}{}
-		wg.Add(1)
-		go func() {
-			defer wg.Done()
-			defer func() { <-sem }()
-			if err := fn(it); err != nil {
-				once.Do(func() { first = err })
-			}
-		}()
-	}
-	wg.Wait()
-	return first
 }

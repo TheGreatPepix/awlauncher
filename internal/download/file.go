@@ -1,6 +1,7 @@
 package download
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"io"
@@ -11,6 +12,27 @@ import (
 
 	"github.com/TheGreatPepix/awlauncher/internal/progress"
 )
+
+var stallTimeout = time.Minute
+
+var Transport = func() *http.Transport {
+	t := http.DefaultTransport.(*http.Transport).Clone()
+	t.MaxIdleConnsPerHost = 16
+	return t
+}()
+
+type stallReader struct {
+	r     io.Reader
+	timer *time.Timer
+}
+
+func (s stallReader) Read(p []byte) (int, error) {
+	n, err := s.r.Read(p)
+	if n > 0 {
+		s.timer.Reset(stallTimeout)
+	}
+	return n, err
+}
 
 func File(client *http.Client, source, dst, label string, expected int64) error {
 	if info, err := os.Stat(dst); err == nil && info.Size() == expected {
@@ -43,8 +65,15 @@ func File(client *http.Client, source, dst, label string, expected int64) error 
 			file.Close()
 			return os.Rename(partial, dst)
 		}
-		req, err := http.NewRequest(http.MethodGet, source, nil)
+		ctx, cancel := context.WithCancel(context.Background())
+		stall := time.AfterFunc(stallTimeout, cancel)
+		stop := func() {
+			stall.Stop()
+			cancel()
+		}
+		req, err := http.NewRequestWithContext(ctx, http.MethodGet, source, nil)
 		if err != nil {
+			stop()
 			file.Close()
 			return err
 		}
@@ -53,6 +82,7 @@ func File(client *http.Client, source, dst, label string, expected int64) error 
 		}
 		resp, err := client.Do(req)
 		if err != nil {
+			stop()
 			file.Close()
 			time.Sleep(time.Second)
 			continue
@@ -64,17 +94,20 @@ func File(client *http.Client, source, dst, label string, expected int64) error 
 		if (pos > 0 && resp.StatusCode != http.StatusPartialContent) || (pos == 0 && resp.StatusCode != http.StatusOK && resp.StatusCode != http.StatusPartialContent) {
 			status := resp.Status
 			resp.Body.Close()
+			stop()
 			file.Close()
 			return errors.New(status)
 		}
 		if _, err = file.Seek(pos, io.SeekStart); err != nil {
 			resp.Body.Close()
+			stop()
 			file.Close()
 			return err
 		}
 		task.Set(pos)
-		_, copyErr := io.Copy(io.MultiWriter(file, task), io.LimitReader(resp.Body, expected-pos+1))
+		_, copyErr := io.Copy(io.MultiWriter(file, task), io.LimitReader(stallReader{resp.Body, stall}, expected-pos+1))
 		resp.Body.Close()
+		stop()
 		file.Close()
 		if copyErr != nil {
 			if progress.Default.Pauses() != pauses {
