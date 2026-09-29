@@ -189,8 +189,16 @@ func runsLauncher(h windows.Handle) bool {
 	if windows.QueryFullProcessImageName(h, 0, &buf[0], &size) != nil {
 		return false
 	}
-	image := windows.UTF16ToString(buf[:size])
-	return strings.EqualFold(image, exe) || strings.EqualFold(image, updateFile{path: exe}.previous())
+	image, err := os.Stat(windows.UTF16ToString(buf[:size]))
+	if err != nil {
+		return false
+	}
+	for _, path := range []string{exe, updateFile{path: exe}.previous()} {
+		if info, err := os.Stat(path); err == nil && os.SameFile(image, info) {
+			return true
+		}
+	}
+	return false
 }
 
 func removePreviousFiles() {

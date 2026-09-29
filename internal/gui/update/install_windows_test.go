@@ -100,4 +100,12 @@ func TestRunsLauncherRecognizesItself(t *testing.T) {
 	if !runsLauncher(windows.CurrentProcess()) {
 		t.Fatal("the current process is not recognized")
 	}
+	parent, err := windows.OpenProcess(windows.PROCESS_QUERY_LIMITED_INFORMATION, false, uint32(os.Getppid()))
+	if err != nil {
+		t.Skip("cannot open the parent process: ", err)
+	}
+	defer windows.CloseHandle(parent)
+	if runsLauncher(parent) {
+		t.Fatal("the parent process is taken for the launcher")
+	}
 }
