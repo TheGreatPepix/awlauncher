@@ -31,6 +31,7 @@ type uiState struct {
 	FXGame        string               `json:"fxGame"`
 	AllowMods     bool                 `json:"allowMods"`
 	PatchBackups  bool                 `json:"patchBackups"`
+	HideOnLaunch  bool                 `json:"hideOnLaunch"`
 	Data          string               `json:"data"`
 	Version       string               `json:"version"`
 	Autostart     string               `json:"autostart"`
@@ -60,7 +61,7 @@ func accountViews(cfg config.Config) []uiAccount {
 func (g *App) emitState(withLog bool) {
 	cfg := g.store.Get()
 	s := uiState{
-		Type: "state", Accounts: accountViews(cfg), Game: cfg.Game, FXGame: cfg.FXGame, AllowMods: cfg.AllowMods, PatchBackups: !cfg.NoBackups,
+		Type: "state", Accounts: accountViews(cfg), Game: cfg.Game, FXGame: cfg.FXGame, AllowMods: cfg.AllowMods, PatchBackups: !cfg.NoBackups, HideOnLaunch: !cfg.KeepOpen,
 		SuggestedGame: launcher.SuggestGameFolder(cfg.Game), Ops: g.ops.List(), Running: g.gameUp.Load(),
 		Version: launcher.Version, Autostart: startup.Mode(), SystemLang: platform.Language(),
 	}

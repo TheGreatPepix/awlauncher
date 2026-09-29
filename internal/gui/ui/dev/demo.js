@@ -10,7 +10,7 @@ const demo = {
     ]);
     const emit = (ev) => setTimeout(() => aw.recv(ev), 30);
     const ops = demo.ops || (demo.ops = []);
-    const stateEv = () => ({ type: "state", accounts, game: "H:\\Games\\Armored Warfare", data: "C:\\Users\\player\\AppData\\Local\\AWLauncher", version: "v0.1.1", autostart: demo.autostart || "off", allowMods: !!demo.allowMods, patchBackups: !demo.noBackups, systemLang: /^ru/i.test(navigator.language) ? "ru" : "en", ops: [...ops] });
+    const stateEv = () => ({ type: "state", accounts, game: "H:\\Games\\Armored Warfare", data: "C:\\Users\\player\\AppData\\Local\\AWLauncher", version: "v0.1.1", autostart: demo.autostart || "off", allowMods: !!demo.allowMods, patchBackups: !demo.noBackups, hideOnLaunch: !demo.keepOpen, systemLang: /^ru/i.test(navigator.language) ? "ru" : "en", ops: [...ops] });
     const begin = (op) => { ops.push(op); emit(stateEv()); };
     const end = (id) => { const i = ops.findIndex((o) => o.id === id); if (i >= 0) ops.splice(i, 1); emit(stateEv()); };
     switch (cmd.cmd) {
@@ -141,6 +141,10 @@ const demo = {
         break;
       case "patchBackups":
         demo.noBackups = cmd.value !== "on";
+        emit(stateEv());
+        break;
+      case "hideOnLaunch":
+        demo.keepOpen = cmd.value !== "on";
         emit(stateEv());
         break;
       case "allowMods":

@@ -53,6 +53,7 @@ function onState(ev) {
   state.fxGame = ev.fxGame || "";
   state.allowMods = !!ev.allowMods;
   state.patchBackups = ev.patchBackups !== false;
+  state.hideOnLaunch = ev.hideOnLaunch !== false;
   state.suggestedGame = ev.suggestedGame || "";
   state.data = ev.data;
   state.ops = ev.ops || [];
@@ -96,6 +97,7 @@ function setup() {
   $("add-empty").addEventListener("click", showAddAccount);
   for (const b of $("mods-mode").children) b.addEventListener("click", () => send({ cmd: "allowMods", value: b.dataset.mode }));
   for (const b of $("backups-mode").children) b.addEventListener("click", () => send({ cmd: "patchBackups", value: b.dataset.mode }));
+  for (const b of $("hide-mode").children) b.addEventListener("click", () => send({ cmd: "hideOnLaunch", value: b.dataset.mode }));
   $("data-open").addEventListener("click", () => send({ cmd: "openDataFolder" }));
   $("app-exit").addEventListener("click", confirmExit);
   $("update-check").addEventListener("click", checkUpdate);

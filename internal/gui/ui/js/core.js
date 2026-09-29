@@ -12,6 +12,7 @@ const state = {
   fxGame: "",
   allowMods: false,
   patchBackups: true,
+  hideOnLaunch: true,
   suggestedGame: "",
   data: "",
   ops: [],

@@ -90,6 +90,8 @@ const RU = {
   "Game files": "Файлы игры",
   "Allow mods": "Разрешить моды",
   "Keep patch backups": "Сохранять бэкапы патчей",
+  "Hide after the game starts": "Скрывать после запуска игры",
+  "The launcher goes to the notification area when the game starts. When off, its window stays open.": "При запуске игры лаунчер уходит в область уведомлений. Если выключено, окно остаётся открытым.",
   "VK Play patches save the files they replace to -gup-\\awlauncher-cache until the next update. When off, they are deleted as soon as a patch is installed.": "Патчи VK Play сохраняют заменяемые файлы в -gup-\\awlauncher-cache до следующего обновления. Если выключено, они удаляются сразу после установки патча.",
   "On": "Вкл.",
   "Keep existing modified files when starting the game. Missing files are still downloaded; Check files restores originals. Game updates may replace mods.": "Сохранять изменённые файлы при запуске игры. Отсутствующие файлы по-прежнему скачиваются; «Проверить файлы» восстанавливает оригиналы. Обновления игры могут заменить моды.",

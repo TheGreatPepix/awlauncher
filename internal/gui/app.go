@@ -99,7 +99,7 @@ func (g *App) run(op launcher.Operation, done string, action func(s *launcher.Se
 				g.host.showWindow()
 			case launched:
 				result["status"] = "launched"
-				if others == 0 {
+				if others == 0 && !g.store.Get().KeepOpen {
 					g.host.hideWindow()
 				}
 			default:

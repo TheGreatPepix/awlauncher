@@ -61,6 +61,7 @@ type Config struct {
 	FXGame      string            `json:"fx_game,omitempty"`
 	AllowMods   bool              `json:"allow_mods,omitempty"`
 	NoBackups   bool              `json:"no_patch_backups,omitempty"`
+	KeepOpen    bool              `json:"keep_open,omitempty"`
 	BranchGames map[string]string `json:"branch_games,omitempty"`
 	Accounts    []Account         `json:"accounts"`
 	LastUserID  int64             `json:"last_user_id"`

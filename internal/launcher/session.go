@@ -58,6 +58,10 @@ func (s *Session) SetPatchBackups(on bool) error {
 	return s.cfg.Update(func(c *config.Config) { c.NoBackups = !on })
 }
 
+func (s *Session) SetHideOnLaunch(on bool) error {
+	return s.cfg.Update(func(c *config.Config) { c.KeepOpen = !on })
+}
+
 func (s *Session) SetAllowMods(on bool) error {
 	return s.cfg.Update(func(c *config.Config) { c.AllowMods = on })
 }
