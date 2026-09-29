@@ -170,6 +170,7 @@ const RU = {
   "The update is installed. It takes effect on the next start.": "Обновление установлено. Оно заработает при следующем запуске.",
   "Logs copied": "Логи скопированы",
   "Stop fooling around": "Не играйся",
+  "Ping-pong": "Пинг-понг",
   "Could not copy": "Не удалось скопировать",
   "{done} / {total} files": "{done} / {total} файлов",
   "paused": "пауза",
