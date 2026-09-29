@@ -53,18 +53,45 @@ function renderProgress() {
   pauseBtn.querySelector("span").textContent = t(p.paused ? "Resume" : "Pause");
   pauseBtn.title = t(p.paused ? "Go on from where it stopped" : "Pause the download or check; it goes on from the same place");
 
-  const tasks = $("tasks");
-  tasks.textContent = "";
-  for (const t of (p.active && p.tasks) || []) {
-    if (tasks.children.length >= 4) break;
-    const f = t.total > 0 ? Math.min(1, t.done / t.total) : 0;
-    const bar = el("div", { class: "task-bar", style: `--p:${(f * 100).toFixed(1)}` }, el("i", { style: `animation-delay:-${(performance.now() % 1000) / 1000}s` }));
-    tasks.append(el("div", { class: "task" },
-      el("span", { class: "task-name", title: t.label, text: clipLeft(t.label, 64) }),
-      bar,
-      el("span", { class: "task-num", text: t.total > 0 ? `${(f * 100).toFixed(0)}% · ${formatPair(t.done, t.total)}` : "" })));
-  }
+  renderTasks(p.active ? (p.tasks || []).slice(0, 4) : []);
   if (!wave.running) { wave.running = true; requestAnimationFrame(drawWave); }
+}
+
+const taskRows = new Map();
+
+function renderTasks(list) {
+  const box = $("tasks");
+  const keep = new Set(list.map((t) => t.label));
+  for (const [label, row] of taskRows) {
+    if (!keep.has(label)) { row.remove(); taskRows.delete(label); }
+  }
+  list.forEach((t, i) => {
+    let row = taskRows.get(t.label);
+    if (!row) {
+      row = el("div", { class: "task" },
+        el("span", { class: "task-name", title: t.label, text: clipLeft(t.label, 64) }),
+        el("div", { class: "task-bar" }, el("i")),
+        el("span", { class: "task-num" }));
+      taskRows.set(t.label, row);
+    }
+    if (box.children[i] !== row) box.insertBefore(row, box.children[i] || null);
+    const f = t.total > 0 ? Math.min(1, t.done / t.total) : 0;
+    const bar = row.children[1];
+    bar.classList.toggle("reset", f * 100 < (Number(bar.style.getPropertyValue("--p")) || 0));
+    bar.style.setProperty("--p", (f * 100).toFixed(2));
+    row.children[2].textContent = t.total > 0 ? `${(f * 100).toFixed(0)}% · ${formatPair(t.done, t.total)}` : "";
+  });
+}
+
+function shownFraction(p, now) {
+  const target = Math.min(1, p.done / p.total);
+  if (wave.to === undefined || wave.title !== p.title || target < wave.to) {
+    Object.assign(wave, { from: target, to: target, t0: now, title: p.title });
+  } else if (target !== wave.to) {
+    const shown = wave.from + (wave.to - wave.from) * Math.min(1, (now - wave.t0) / 260);
+    Object.assign(wave, { from: shown, to: target, t0: now });
+  }
+  return wave.from + (wave.to - wave.from) * Math.min(1, (now - wave.t0) / 260);
 }
 
 function sinePath(x0, x1, mid, amp, phase) {
@@ -87,7 +114,7 @@ function drawWave(now) {
 
   let active = "", track = "", stop = false;
   if (p.active && p.total > 0) {
-    const x1 = pad + Math.min(1, p.done / p.total) * (W - 2 * pad);
+    const x1 = pad + shownFraction(p, now) * (W - 2 * pad);
     active = sinePath(pad, x1, mid, wave.amp, wave.phase);
     if (x1 + gap < W - pad) { track = `M${x1 + gap},${mid}L${W - pad},${mid}`; stop = true; }
   } else if (busy() && !p.paused) {

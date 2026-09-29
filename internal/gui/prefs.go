@@ -11,10 +11,17 @@ import (
 	"github.com/TheGreatPepix/awlauncher/internal/platform"
 )
 
-type uiPrefs struct {
-	Theme string `json:"theme"`
+type uiPalette struct {
 	Hue   int    `json:"hue"`
-	Lang  string `json:"lang"`
+	Style string `json:"style"`
+}
+
+type uiPrefs struct {
+	Theme    string      `json:"theme"`
+	Hue      int         `json:"hue"`
+	Style    string      `json:"style,omitempty"`
+	Palettes []uiPalette `json:"palettes,omitempty"`
+	Lang     string      `json:"lang"`
 }
 
 func prefsPath() (string, error) {

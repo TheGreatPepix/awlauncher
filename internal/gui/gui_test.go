@@ -185,3 +185,14 @@ func TestReadySendsWaitingPrompts(t *testing.T) {
 	p := waitPrompt(t, h, 1)
 	g.answer(int(p["id"].(float64)), "no", true)
 }
+
+func TestPrefsKeepPalettes(t *testing.T) {
+	want := uiPrefs{Theme: "dark", Hue: 150, Style: "expressive", Palettes: []uiPalette{{Hue: 150, Style: "expressive"}, {Hue: 20, Style: "vibrant"}}, Lang: "ru"}
+	if err := savePrefs(want); err != nil {
+		t.Fatal(err)
+	}
+	got := loadPrefs()
+	if got.Theme != want.Theme || got.Hue != want.Hue || got.Style != want.Style || got.Lang != want.Lang || len(got.Palettes) != 2 || got.Palettes[1] != want.Palettes[1] {
+		t.Fatalf("prefs = %+v", got)
+	}
+}

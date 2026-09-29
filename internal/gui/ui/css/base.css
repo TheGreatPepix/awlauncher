@@ -20,16 +20,16 @@ input { font: inherit; color: inherit; }
 .icon.sm { width: 18px; height: 18px; }
 .icon.lg { width: 36px; height: 36px; }
 
-:is(.state, .btn, .icon-btn, .segmented button, .nav-item, .menu button, .option, .choice, .tile, .tile-play, .toast-close) {
+:is(.state, .btn, .icon-btn, .segmented button, .nav-item, .menu button, .option, .choice, .tile, .tile-play, .toast-close, .style-choice, .palette-add, .palette-remove) {
   position: relative; overflow: hidden;
 }
-:is(.state, .btn, .icon-btn, .segmented button, .nav-item, .menu button, .option, .choice, .tile, .tile-play, .toast-close)::after {
+:is(.state, .btn, .icon-btn, .segmented button, .nav-item, .menu button, .option, .choice, .tile, .tile-play, .toast-close, .style-choice, .palette-add, .palette-remove)::after {
   content: ""; position: absolute; inset: 0; background: currentColor; opacity: 0; pointer-events: none; border-radius: inherit;
   transition: opacity var(--effects-time) var(--effects);
 }
-:is(.state, .btn, .icon-btn, .segmented button, .nav-item, .menu button, .option, .choice, .tile, .tile-play, .toast-close):hover::after { opacity: 0.08; }
-:is(.state, .btn, .icon-btn, .segmented button, .nav-item, .menu button, .option, .choice, .tile, .tile-play, .toast-close):is(:focus-visible, :active)::after { opacity: 0.1; }
-:is(.state, .btn, .icon-btn, .segmented button, .nav-item, .menu button, .option, .choice, .tile, .tile-play, .toast-close):disabled::after { opacity: 0; }
+:is(.state, .btn, .icon-btn, .segmented button, .nav-item, .menu button, .option, .choice, .tile, .tile-play, .toast-close, .style-choice, .palette-add, .palette-remove):hover::after { opacity: 0.08; }
+:is(.state, .btn, .icon-btn, .segmented button, .nav-item, .menu button, .option, .choice, .tile, .tile-play, .toast-close, .style-choice, .palette-add, .palette-remove):is(:focus-visible, :active)::after { opacity: 0.1; }
+:is(.state, .btn, .icon-btn, .segmented button, .nav-item, .menu button, .option, .choice, .tile, .tile-play, .toast-close, .style-choice, .palette-add, .palette-remove):disabled::after { opacity: 0; }
 
 :is(.page, .log, .dialog-body)::-webkit-scrollbar { width: 10px; }
 :is(.page, .log, .dialog-body)::-webkit-scrollbar-thumb {

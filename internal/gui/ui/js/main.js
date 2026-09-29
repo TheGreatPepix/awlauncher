@@ -59,7 +59,7 @@ function onState(ev) {
   state.autostart = ev.autostart || "off";
   if (ev.systemLang) i18n.system = ev.systemLang;
   if (typeof ev.log === "string") { $("log").textContent = ""; appendLog(ev.log, true); }
-  if (ev.prefs) { prefs.theme = ev.prefs.theme || "system"; prefs.hue = validHue(ev.prefs.hue); prefs.lang = ev.prefs.lang || "auto"; applyTheme(); }
+  if (ev.prefs) loadPrefs(ev.prefs);
   if (ev.prefs || ev.systemLang) applyLanguage();
   renderAll();
 }

@@ -16,19 +16,21 @@ import (
 )
 
 type uiCommand struct {
-	Cmd      string `json:"cmd"`
-	Account  string `json:"account"`
-	Provider string `json:"provider"`
-	Prompt   int    `json:"prompt"`
-	Value    string `json:"value"`
-	OK       bool   `json:"ok"`
-	Dark     bool   `json:"dark"`
-	Caption  string `json:"caption"`
-	Text     string `json:"text"`
-	Theme    string `json:"theme"`
-	Branch   string `json:"branch"`
-	Hue      int    `json:"hue"`
-	Lang     string `json:"lang"`
+	Cmd      string      `json:"cmd"`
+	Account  string      `json:"account"`
+	Provider string      `json:"provider"`
+	Prompt   int         `json:"prompt"`
+	Value    string      `json:"value"`
+	OK       bool        `json:"ok"`
+	Dark     bool        `json:"dark"`
+	Caption  string      `json:"caption"`
+	Text     string      `json:"text"`
+	Theme    string      `json:"theme"`
+	Branch   string      `json:"branch"`
+	Hue      int         `json:"hue"`
+	Style    string      `json:"style"`
+	Palettes []uiPalette `json:"palettes"`
+	Lang     string      `json:"lang"`
 }
 
 func (g *App) onMessage(message string) {
@@ -78,7 +80,7 @@ func (g *App) onMessage(message string) {
 			g.host.setTitleBar(c.Dark, caption, text)
 		}
 	case "prefs":
-		if err := savePrefs(uiPrefs{Theme: c.Theme, Hue: c.Hue, Lang: c.Lang}); err != nil {
+		if err := savePrefs(uiPrefs{Theme: c.Theme, Hue: c.Hue, Style: c.Style, Palettes: c.Palettes, Lang: c.Lang}); err != nil {
 			log.Print("Cannot save the appearance settings: ", err)
 		}
 		if ui.SetLanguage(c.Lang) {
