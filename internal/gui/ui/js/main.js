@@ -24,6 +24,7 @@ window.aw = {
       case "gameInfo": state.gameInfo = ev; renderGame(); break;
       case "availableClients": state.availableClients = ev.clients; state.availableClientsFailed = !!ev.failed; state.availableVKFailed = !!ev.vkFailed; renderGame(); break;
       case "update": onUpdate(ev); break;
+      case "confirmExit": askExit(); break;
     }
   },
 };

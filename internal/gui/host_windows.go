@@ -85,7 +85,7 @@ func Run() int {
 	tray, err := startTray(trayActions{
 		open: func() { h.post(h.showWindow) },
 		tap:  func() { h.post(h.toggleWindow) },
-		exit: func() { h.post(h.exit) },
+		exit: func() { h.post(g.requestExit) },
 		play: func() { h.post(g.playLast) },
 	})
 	if err != nil {

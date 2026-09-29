@@ -81,19 +81,33 @@ function onUpdate(ev) {
   whenDialogFree(() => openDialog({ iconName: "update", title: t("AWLauncher {latest} is available", { latest: ev.latest }), body, actions, onEscape: closeDialog }));
 }
 
+let exitAsked = false;
+
 function confirmExit() {
   if (!busy()) {
     send({ cmd: "exit" });
     return;
   }
+  exitAsked = true;
+  const answer = (quit) => {
+    exitAsked = false;
+    closeDialog();
+    if (quit) send({ cmd: "exit" });
+  };
   openDialog({
     iconName: "logout", iconClass: "error",
     title: t("Exit AWLauncher?"),
     body: [el("p", { text: t("{ops} is still in progress. If you exit now, it is interrupted.", { ops: opsTitle() }) })],
     actions: [
-      { label: t("Cancel"), onClick: closeDialog },
-      { label: t("Exit"), kind: "danger", primary: true, onClick: () => { closeDialog(); send({ cmd: "exit" }); } },
+      { label: t("Cancel"), onClick: () => answer(false) },
+      { label: t("Exit"), kind: "danger", primary: true, onClick: () => answer(true) },
     ],
-    onEscape: closeDialog,
+    onEscape: () => answer(false),
   });
+}
+
+function askExit() {
+  if (exitAsked) return;
+  exitAsked = true;
+  whenDialogFree(confirmExit);
 }

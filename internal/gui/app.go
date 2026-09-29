@@ -121,6 +121,15 @@ func (g *App) play(acc config.Account) {
 	})
 }
 
+func (g *App) requestExit() {
+	if !g.pageReady || len(g.ops.List()) == 0 {
+		g.host.exit()
+		return
+	}
+	g.host.showWindow()
+	g.emit(map[string]any{"type": "confirmExit"})
+}
+
 func (g *App) playLast() {
 	if acc, ok := g.store.Find(g.store.Get().LastUserID); ok {
 		g.play(acc)

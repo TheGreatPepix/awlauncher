@@ -18,6 +18,8 @@ import (
 type fakeHost struct {
 	mu     sync.Mutex
 	events []map[string]any
+	shown  int
+	exited int
 }
 
 func (h *fakeHost) post(f func()) { f() }
@@ -44,9 +46,9 @@ func (h *fakeHost) prompts() []map[string]any {
 	return out
 }
 
-func (h *fakeHost) showWindow()                                           {}
+func (h *fakeHost) showWindow()                                           { h.shown++ }
 func (h *fakeHost) hideWindow()                                           {}
-func (h *fakeHost) exit()                                                 {}
+func (h *fakeHost) exit()                                                 { h.exited++ }
 func (h *fakeHost) setTitleBar(bool, [3]uint8, [3]uint8)                  {}
 func (h *fakeHost) pickFolder(string) (string, error)                     { return "", nil }
 func (h *fakeHost) copyText(string) error                                 { return nil }
@@ -194,5 +196,24 @@ func TestPrefsKeepPalettes(t *testing.T) {
 	got := loadPrefs()
 	if got.Theme != want.Theme || got.Hue != want.Hue || got.Style != want.Style || got.Lang != want.Lang || len(got.Palettes) != 2 || got.Palettes[1] != want.Palettes[1] {
 		t.Fatalf("prefs = %+v", got)
+	}
+}
+
+func TestTrayExitAsksWhileAnOperationRuns(t *testing.T) {
+	g, h := testApp(t)
+	g.pageReady = true
+	op := launcher.Operation{Title: "Downloading game", Game: true}
+	g.ops.Begin(&op)
+	g.requestExit()
+	if h.exited != 0 || h.shown != 1 {
+		t.Fatalf("exited %d, shown %d; want the window shown and no exit", h.exited, h.shown)
+	}
+	if n := len(h.events); n == 0 || h.events[n-1]["type"] != "confirmExit" {
+		t.Fatalf("events %v; want confirmExit last", h.events)
+	}
+	g.ops.Finish(op.ID)
+	g.requestExit()
+	if h.exited != 1 {
+		t.Fatalf("exited %d; want an exit once nothing runs", h.exited)
 	}
 }
