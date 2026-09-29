@@ -1,6 +1,7 @@
 package gamefiles
 
 import (
+	"context"
 	"encoding/hex"
 	"errors"
 	"fmt"
@@ -132,10 +133,15 @@ func syncFiles(root string, set fileSet, opt syncOptions) ([]remoteFile, error) 
 			if err := os.Remove(dst); err != nil && !errors.Is(err, os.ErrNotExist) {
 				return err
 			}
-			if err := download.File(client, f.URL, dst, f.Path, f.Size); err != nil {
+			sum, err := download.Fetch(context.Background(), download.Request{Client: client, URL: f.URL, Dst: dst, Label: f.Path, Size: f.Size, NewHash: set.NewHash})
+			if err != nil {
 				return fmt.Errorf("%s: %w", f.Path, err)
 			}
-			if ok, err := fileMatches(dst, f.Size, f.Hash, set.NewHash, nil); err == nil && ok {
+			ok := strings.EqualFold(hex.EncodeToString(sum), f.Hash)
+			if sum == nil {
+				ok, err = fileMatches(dst, f.Size, f.Hash, set.NewHash, nil)
+			}
+			if err == nil && ok {
 				if f.Modified > 0 {
 					m := time.Unix(f.Modified, 0)
 					_ = os.Chtimes(dst, m, m)

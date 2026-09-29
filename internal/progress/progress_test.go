@@ -32,7 +32,7 @@ func captureLog(t *testing.T, f func()) string {
 }
 
 func TestBoardLogsSummary(t *testing.T) {
-	b := &progressBoard{}
+	b := &Board{}
 	out := captureLog(t, func() {
 		b.Begin("Verifying", unitBytes, 10, 0)
 		b.Add(10)
@@ -48,7 +48,7 @@ func TestBoardLogsSummary(t *testing.T) {
 }
 
 func TestSnapshotFollowsPhase(t *testing.T) {
-	b := &progressBoard{}
+	b := &Board{}
 	if b.Snapshot().Active {
 		t.Fatal("snapshot is active before Begin")
 	}

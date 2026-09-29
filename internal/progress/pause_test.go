@@ -8,7 +8,7 @@ import (
 )
 
 func TestPauseHoldsWorkUntilResume(t *testing.T) {
-	b := &progressBoard{}
+	b := &Board{}
 	b.Begin("Downloading", UnitBytes, 100, 0)
 	defer b.End()
 	task := b.Start("file", 100)
@@ -43,7 +43,7 @@ func TestPauseHoldsWorkUntilResume(t *testing.T) {
 }
 
 func TestNoPauseAndReader(t *testing.T) {
-	b := &progressBoard{}
+	b := &Board{}
 	b.Begin("Installing", UnitFiles, 3, 0)
 	b.NoPause()
 	b.Pause()

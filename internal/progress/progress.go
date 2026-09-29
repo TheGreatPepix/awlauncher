@@ -23,38 +23,38 @@ const (
 	UnitFiles = unitFiles
 )
 
-type progressTask struct {
+type Task struct {
 	label string
 	total int64
 	done  atomic.Int64
-	board *progressBoard
+	board *Board
 }
 
-func (t *progressTask) Write(p []byte) (int, error) {
+func (t *Task) Write(p []byte) (int, error) {
 	t.board.Wait()
 	t.Add(int64(len(p)))
 	return len(p), nil
 }
 
-func (t *progressTask) Add(n int64) {
+func (t *Task) Add(n int64) {
 	t.board.Wait()
 	t.done.Add(n)
 	t.board.done.Add(n)
 }
 
-func (t *progressTask) Set(v int64) {
+func (t *Task) Set(v int64) {
 	old := t.done.Swap(v)
 	t.board.done.Add(v - old)
 }
 
-func (t *progressTask) Done() { t.board.finish(t) }
+func (t *Task) Done() { t.board.finish(t) }
 
 type progressSample struct {
 	at   time.Time
 	done int64
 }
 
-type progressBoard struct {
+type Board struct {
 	mu        sync.Mutex
 	active    bool
 	pausable  atomic.Bool
@@ -66,13 +66,13 @@ type progressBoard struct {
 	startDone int64
 	started   time.Time
 	lastLine  time.Time
-	tasks     []*progressTask
+	tasks     []*Task
 	samples   []progressSample
 	stop      chan struct{}
 	stopped   chan struct{}
 }
 
-var Default = &progressBoard{}
+var Default = &Board{}
 
 type Snapshot struct {
 	Active   bool           `json:"active"`
@@ -92,7 +92,7 @@ type TaskSnapshot struct {
 	Total int64  `json:"total"`
 }
 
-func (b *progressBoard) Snapshot() Snapshot {
+func (b *Board) Snapshot() Snapshot {
 	b.mu.Lock()
 	defer b.mu.Unlock()
 	if !b.active {
@@ -108,7 +108,7 @@ func (b *progressBoard) Snapshot() Snapshot {
 	return s
 }
 
-func (b *progressBoard) Begin(title string, unit progressUnit, total, done int64) {
+func (b *Board) Begin(title string, unit progressUnit, total, done int64) {
 	b.End()
 	b.mu.Lock()
 	b.title, b.unit, b.total = title, unit, total
@@ -125,7 +125,7 @@ func (b *progressBoard) Begin(title string, unit progressUnit, total, done int64
 	go b.loop(stop, stopped)
 }
 
-func (b *progressBoard) loop(stop, stopped chan struct{}) {
+func (b *Board) loop(stop, stopped chan struct{}) {
 	defer close(stopped)
 	tick := time.NewTicker(200 * time.Millisecond)
 	defer tick.Stop()
@@ -141,7 +141,7 @@ func (b *progressBoard) loop(stop, stopped chan struct{}) {
 	}
 }
 
-func (b *progressBoard) End() {
+func (b *Board) End() {
 	b.mu.Lock()
 	if !b.active {
 		b.mu.Unlock()
@@ -158,13 +158,13 @@ func (b *progressBoard) End() {
 	b.active = false
 }
 
-func (b *progressBoard) Add(n int64) {
+func (b *Board) Add(n int64) {
 	b.Wait()
 	b.done.Add(n)
 }
 
-func (b *progressBoard) Start(label string, total int64) *progressTask {
-	t := &progressTask{label: label, total: total, board: b}
+func (b *Board) Start(label string, total int64) *Task {
+	t := &Task{label: label, total: total, board: b}
 	b.mu.Lock()
 	if b.active {
 		b.tasks = append(b.tasks, t)
@@ -173,7 +173,7 @@ func (b *progressBoard) Start(label string, total int64) *progressTask {
 	return t
 }
 
-func (b *progressBoard) finish(t *progressTask) {
+func (b *Board) finish(t *Task) {
 	b.mu.Lock()
 	defer b.mu.Unlock()
 	for i, x := range b.tasks {
@@ -184,7 +184,7 @@ func (b *progressBoard) finish(t *progressTask) {
 	}
 }
 
-func (b *progressBoard) sampleLocked() {
+func (b *Board) sampleLocked() {
 	if !b.active {
 		return
 	}
@@ -200,7 +200,7 @@ func (b *progressBoard) sampleLocked() {
 	}
 }
 
-func (b *progressBoard) headlineLocked(done int64) string {
+func (b *Board) headlineLocked(done int64) string {
 	frac := fraction(done, b.total)
 	parts := []string{fmt.Sprintf("%-12s", b.title), fmt.Sprintf("%5.1f%%", 100*frac), b.amount(done, b.total)}
 	if b.unit == unitBytes {
@@ -214,7 +214,7 @@ func (b *progressBoard) headlineLocked(done int64) string {
 	return strings.Join(parts, "  ")
 }
 
-func (b *progressBoard) summaryLocked() string {
+func (b *Board) summaryLocked() string {
 	done := b.done.Load()
 	elapsed := time.Since(b.started)
 	if done < b.total {
@@ -227,7 +227,7 @@ func (b *progressBoard) summaryLocked() string {
 	return s
 }
 
-func (b *progressBoard) speedLocked() float64 {
+func (b *Board) speedLocked() float64 {
 	if len(b.samples) < 2 {
 		return 0
 	}
@@ -239,7 +239,7 @@ func (b *progressBoard) speedLocked() float64 {
 	return float64(last.done-first.done) / dt
 }
 
-func (b *progressBoard) amount(done, total int64) string {
+func (b *Board) amount(done, total int64) string {
 	if b.unit == unitFiles {
 		if total < 0 {
 			return fmt.Sprintf("%d files", done)

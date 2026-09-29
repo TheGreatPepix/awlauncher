@@ -49,27 +49,27 @@ func (g *pauseGate) wait() {
 	}
 }
 
-func (b *progressBoard) Pause() bool { return b.gate.pause() }
+func (b *Board) Pause() bool { return b.gate.pause() }
 
-func (b *progressBoard) Resume() bool { return b.gate.unpause() }
+func (b *Board) Resume() bool { return b.gate.unpause() }
 
-func (b *progressBoard) Paused() bool { return b.gate.paused.Load() }
+func (b *Board) Paused() bool { return b.gate.paused.Load() }
 
-func (b *progressBoard) Pauses() int64 { return b.gate.count.Load() }
+func (b *Board) Pauses() int64 { return b.gate.count.Load() }
 
-func (b *progressBoard) NoPause() { b.pausable.Store(false) }
+func (b *Board) NoPause() { b.pausable.Store(false) }
 
-func (b *progressBoard) Wait() {
+func (b *Board) Wait() {
 	if b.pausable.Load() {
 		b.gate.wait()
 	}
 }
 
-func (b *progressBoard) Reader(r io.Reader) io.Reader { return pausedReader{r, b} }
+func (b *Board) Reader(r io.Reader) io.Reader { return pausedReader{r, b} }
 
 type pausedReader struct {
 	r io.Reader
-	b *progressBoard
+	b *Board
 }
 
 func (p pausedReader) Read(buf []byte) (int, error) {
