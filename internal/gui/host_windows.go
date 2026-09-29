@@ -237,6 +237,8 @@ func (h *winHost) toggleWindow() {
 	h.showWindow()
 }
 
+func (h *winHost) windowShown() bool { return h.win.visible() && !h.win.iconic() }
+
 func (h *winHost) hideWindow() {
 	h.win.hide()
 	if h.web != nil {

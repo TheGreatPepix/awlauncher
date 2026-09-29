@@ -23,6 +23,7 @@ type host interface {
 	eval(script string)
 	showWindow()
 	hideWindow()
+	windowShown() bool
 	exit()
 	setTitleBar(dark bool, caption, text [3]uint8)
 	pickFolder(initial string) (string, error)
@@ -221,6 +222,9 @@ func (g *App) watchProgress() {
 	defer tick.Stop()
 	wasActive := false
 	for range tick.C {
+		if !g.host.windowShown() {
+			continue
+		}
 		s := progress.Default.Snapshot()
 		if s.Active || s.Paused || wasActive {
 			g.emit(struct {

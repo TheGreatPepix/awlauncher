@@ -48,6 +48,7 @@ func (h *fakeHost) prompts() []map[string]any {
 
 func (h *fakeHost) showWindow()                                           { h.shown++ }
 func (h *fakeHost) hideWindow()                                           {}
+func (h *fakeHost) windowShown() bool                                     { return true }
 func (h *fakeHost) exit()                                                 { h.exited++ }
 func (h *fakeHost) setTitleBar(bool, [3]uint8, [3]uint8)                  {}
 func (h *fakeHost) pickFolder(string) (string, error)                     { return "", nil }
