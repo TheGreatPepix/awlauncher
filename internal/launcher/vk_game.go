@@ -142,7 +142,7 @@ func (s *Session) ensureUpdated(g *gamefiles.Install) bool {
 	if !s.ui.Yes("Install now?", true) {
 		return s.ui.Yes("Start the game without updating?", false)
 	}
-	if err := gamefiles.InstallPatches(g.Root, patches); err != nil {
+	if err := gamefiles.InstallPatches(g.Root, patches, !s.cfg.Get().NoBackups); err != nil {
 		s.ui.Say("Update failed:", err)
 		return false
 	}
@@ -226,7 +226,7 @@ func (s *Session) updateVK(root string) error {
 	if !s.ui.Yes(fmt.Sprintf("Update VK Play from build %d to %d (%d patches)?", g.Build, latest, len(patches)), true) {
 		return ErrCancelled
 	}
-	if err := gamefiles.InstallPatches(root, patches); err != nil {
+	if err := gamefiles.InstallPatches(root, patches, !s.cfg.Get().NoBackups); err != nil {
 		return fmt.Errorf("update failed: %w", err)
 	}
 	s.found.game = nil
@@ -248,7 +248,7 @@ func (s *Session) verifyVK(root string) error {
 		if !s.ui.Yes("Install the update first?", true) {
 			return ErrCancelled
 		}
-		if err := gamefiles.InstallPatches(root, patches); err != nil {
+		if err := gamefiles.InstallPatches(root, patches, !s.cfg.Get().NoBackups); err != nil {
 			return fmt.Errorf("update failed: %w", err)
 		}
 		if g, err = gamefiles.Open(root); err != nil {

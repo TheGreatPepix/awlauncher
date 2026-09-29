@@ -147,6 +147,16 @@ func (g *App) onMessage(message string) {
 			return
 		}
 		g.emitState(false)
+	case "patchBackups":
+		if g.ops.GameBusy() {
+			g.notice(waitForGame)
+			return
+		}
+		if err := g.session.SetPatchBackups(c.Value == "on"); err != nil {
+			g.notice(err.Error())
+			return
+		}
+		g.emitState(false)
 	case "exit":
 		g.host.post(g.host.exit)
 	case "openDataFolder":

@@ -2,6 +2,7 @@
 
 function renderFolders() {
   for (const b of $("mods-mode").children) b.classList.toggle("on", b.dataset.mode === (state.allowMods ? "on" : "off"));
+  for (const b of $("backups-mode").children) b.classList.toggle("on", b.dataset.mode === (state.patchBackups ? "on" : "off"));
   $("data-folder").textContent = state.data || "%LOCALAPPDATA%\\AWLauncher";
 }
 

@@ -121,7 +121,7 @@ func TestRemoveMainClientKeepsOtherFoldersAndConfiguredPaths(t *testing.T) {
 }
 func TestClearDownloadsRemovesPatchCache(t *testing.T) {
 	root := t.TempDir()
-	writeTree(t, root, map[string][]byte{"-gup-/awlauncher-cache/payload-1-2/a.7z": []byte("patch"), "-gup-/last.xml": []byte("x")})
+	writeTree(t, root, map[string][]byte{"-gup-/awlauncher-cache/patch-1-2/a.7z": []byte("patch"), "-gup-/last.xml": []byte("x")})
 	if err := gameSession(t, root, true).ClearDownloads(); err != nil {
 		t.Fatal(err)
 	}

@@ -70,3 +70,23 @@ func TestSnapshotFollowsPhase(t *testing.T) {
 		t.Fatal("snapshot is active after End")
 	}
 }
+
+func TestResumedBytesAreNotCountedAsTransferred(t *testing.T) {
+	b := &Board{}
+	b.Begin("Downloading", UnitBytes, 100, 10)
+	defer b.End()
+	task := b.Start("file", 90)
+	task.Set(60)
+	task.Write(make([]byte, 25))
+	if got := b.done.Load(); got != 95 {
+		t.Fatalf("done %d, want 95", got)
+	}
+	if got := b.moved(); got != 25 {
+		t.Fatalf("moved %d, want 25", got)
+	}
+	task.Set(0)
+	task.Write(make([]byte, 10))
+	if got := b.moved(); got != 35 {
+		t.Fatalf("moved after a restart %d, want 35", got)
+	}
+}

@@ -82,7 +82,7 @@ func TestPrefetchLoadsTheNextPatchAndStopsOnRequest(t *testing.T) {
 		t.Fatalf("stop returned %v, %+v", ok, meta)
 	}
 	for name, want := range files {
-		if data, _ := os.ReadFile(filepath.Join(payloadDir(cache, next), name)); string(data) != want {
+		if data, _ := os.ReadFile(filepath.Join(patchDir(cache, next), name)); string(data) != want {
 			t.Fatalf("%s holds %q", name, data)
 		}
 	}

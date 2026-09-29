@@ -9,7 +9,7 @@ import (
 	"strconv"
 )
 
-var cacheEntryPattern = regexp.MustCompile(`^(payload|stage|backup)-(\d+)-(\d+)(-.*)?$`)
+var cacheEntryPattern = regexp.MustCompile(`^(patch|stage|backup)-(\d+)-(\d+)(-.*)?$`)
 
 func staleCacheEntries(names []string, build int) []string {
 	var stale []string

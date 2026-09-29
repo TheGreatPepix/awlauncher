@@ -22,7 +22,7 @@ const (
 	prefetchReserve = 4 << 30
 )
 
-func InstallPatches(gameRoot string, patches []patchInfo) error {
+func InstallPatches(gameRoot string, patches []patchInfo, keepBackups bool) error {
 	if err := EnsureGameClosed(); err != nil {
 		return err
 	}
@@ -49,7 +49,7 @@ func InstallPatches(gameRoot string, patches []patchInfo) error {
 				return err
 			}
 		}
-		payload := payloadDir(cacheRoot, p)
+		payload := patchDir(cacheRoot, p)
 		if err := meta.Download(patchClient(), payload, patchJobs); err != nil {
 			return err
 		}
@@ -76,7 +76,12 @@ func InstallPatches(gameRoot string, patches []patchInfo) error {
 		if err := installPatch(gameRoot, stage, backup, names, last, p, manifest); err != nil {
 			return err
 		}
-		log.Printf("Patch %d installed. Backups: %s\n", p.Destination, backup)
+		if keepBackups {
+			log.Printf("Patch %d installed. Backups: %s\n", p.Destination, backup)
+		} else {
+			_ = os.RemoveAll(backup)
+			log.Printf("Patch %d installed.\n", p.Destination)
+		}
 		build, last, err = CurrentBuild(gameRoot)
 		if err != nil {
 			return err
@@ -89,8 +94,8 @@ func InstallPatches(gameRoot string, patches []patchInfo) error {
 	return nil
 }
 
-func payloadDir(cacheRoot string, p patchInfo) string {
-	return filepath.Join(cacheRoot, fmt.Sprintf("payload-%d-%d", p.Source, p.Destination))
+func patchDir(cacheRoot string, p patchInfo) string {
+	return filepath.Join(cacheRoot, fmt.Sprintf("patch-%d-%d", p.Source, p.Destination))
 }
 
 func patchClient() *http.Client {
@@ -108,7 +113,7 @@ func startPrefetch(client *http.Client, cacheRoot string, p patchInfo) *prefetch
 	if err != nil {
 		return nil
 	}
-	payload := payloadDir(cacheRoot, p)
+	payload := patchDir(cacheRoot, p)
 	missing := meta.Missing(payload)
 	if missing == 0 {
 		return &prefetch{meta: meta}

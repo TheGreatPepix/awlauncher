@@ -45,6 +45,7 @@ func (t *Task) Add(n int64) {
 func (t *Task) Set(v int64) {
 	old := t.done.Swap(v)
 	t.board.done.Add(v - old)
+	t.board.skipped.Add(v - old)
 }
 
 func (t *Task) Done() { t.board.finish(t) }
@@ -64,6 +65,7 @@ type Board struct {
 	unit      progressUnit
 	total     int64
 	done      atomic.Int64
+	skipped   atomic.Int64
 	startDone int64
 	started   time.Time
 	lastLine  time.Time
@@ -114,6 +116,7 @@ func (b *Board) Begin(title string, unit progressUnit, total, done int64) {
 	b.mu.Lock()
 	b.title, b.unit, b.total = title, unit, total
 	b.done.Store(done)
+	b.skipped.Store(0)
 	b.startDone = done
 	b.started = time.Now()
 	b.lastLine = b.started
@@ -191,7 +194,7 @@ func (b *Board) sampleLocked() {
 	}
 	now := time.Now()
 	done := b.done.Load()
-	b.samples = append(b.samples, progressSample{now, done})
+	b.samples = append(b.samples, progressSample{now, done - b.skipped.Load()})
 	for len(b.samples) > 2 && now.Sub(b.samples[0].at) > 10*time.Second {
 		b.samples = b.samples[1:]
 	}
@@ -222,11 +225,13 @@ func (b *Board) summaryLocked() string {
 		return fmt.Sprintf("%-12s  stopped at %.1f%%, %s", b.title, 100*fraction(done, b.total), b.amount(done, b.total))
 	}
 	s := fmt.Sprintf("%-12s  done: %s in %s", b.title, b.amount(b.total, -1), formatDuration(elapsed))
-	if moved := done - b.startDone; b.unit == unitBytes && moved > 0 && elapsed >= time.Second {
+	if moved := b.moved(); b.unit == unitBytes && moved > 0 && elapsed >= time.Second {
 		s += fmt.Sprintf(", %s/s", formatBytes(int64(float64(moved)/elapsed.Seconds())))
 	}
 	return s
 }
+
+func (b *Board) moved() int64 { return b.done.Load() - b.startDone - b.skipped.Load() }
 
 func (b *Board) speedLocked() float64 {
 	if len(b.samples) < 2 {
