@@ -11,8 +11,10 @@ import (
 	"os"
 	"path"
 	"path/filepath"
+	"runtime"
 	"strconv"
 	"strings"
+	"sync"
 
 	"github.com/TheGreatPepix/awlauncher/internal/download"
 	"github.com/TheGreatPepix/awlauncher/internal/progress"
@@ -307,32 +309,71 @@ func (t Meta) badFiles(root string) ([]string, error) {
 	}
 	progress.Default.Begin("Verifying", progress.UnitBytes, total, 0)
 	defer progress.Default.End()
-	stream := io.MultiReader(readers...)
+	pieces := len(t.Hashes) / sha1.Size
+	badPiece, err := t.hashPieces(io.MultiReader(readers...), total, pieces)
+	if err != nil {
+		return nil, err
+	}
 	badSet := map[string]bool{}
 	var bad []string
-	for i := 0; i < len(t.Hashes)/sha1.Size; i++ {
-		h := sha1.New()
-		n := t.PieceSize
-		if total < n {
-			n = total
+	for i, broken := range badPiece {
+		if !broken {
+			continue
 		}
-		if _, err := io.CopyN(h, stream, n); err != nil {
-			return nil, fmt.Errorf("piece %d: %w", i, err)
-		}
-		if !bytes.Equal(h.Sum(nil), t.Hashes[i*sha1.Size:(i+1)*sha1.Size]) {
-			start := int64(i) * t.PieceSize
-			for _, s := range spans {
-				if s.start < start+n && start < s.end && !badSet[s.name] {
-					badSet[s.name] = true
-					bad = append(bad, s.name)
-				}
+		start := int64(i) * t.PieceSize
+		end := min(start+t.PieceSize, total)
+		for _, s := range spans {
+			if s.start < end && start < s.end && !badSet[s.name] {
+				badSet[s.name] = true
+				bad = append(bad, s.name)
 			}
 		}
-		total -= n
-		progress.Default.Add(n)
-	}
-	if total != 0 {
-		return nil, errors.New("torrent verification ended early")
 	}
 	return bad, nil
+}
+
+type piece struct {
+	index int
+	data  []byte
+}
+
+func (t Meta) hashPieces(stream io.Reader, total int64, pieces int) ([]bool, error) {
+	if int64(pieces) != (total+t.PieceSize-1)/t.PieceSize {
+		return nil, errors.New("torrent piece count does not match its files")
+	}
+	jobs := min(max(runtime.NumCPU(), 1), 4)
+	free := make(chan []byte, jobs+1)
+	for range jobs + 1 {
+		free <- make([]byte, t.PieceSize)
+	}
+	work := make(chan piece)
+	bad := make([]bool, pieces)
+	var wg sync.WaitGroup
+	for range jobs {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			for p := range work {
+				sum := sha1.Sum(p.data)
+				bad[p.index] = !bytes.Equal(sum[:], t.Hashes[p.index*sha1.Size:(p.index+1)*sha1.Size])
+				progress.Default.Add(int64(len(p.data)))
+				free <- p.data[:cap(p.data)]
+			}
+		}()
+	}
+	var readErr error
+	left := total
+	for i := 0; i < pieces; i++ {
+		n := min(t.PieceSize, left)
+		buf := <-free
+		if _, err := io.ReadFull(stream, buf[:n]); err != nil {
+			readErr = fmt.Errorf("piece %d: %w", i, err)
+			break
+		}
+		work <- piece{i, buf[:n]}
+		left -= n
+	}
+	close(work)
+	wg.Wait()
+	return bad, readErr
 }
