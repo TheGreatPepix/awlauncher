@@ -33,7 +33,7 @@ func (s *Session) AddAccount(provider string) error {
 func (s *Session) RemoveAccount(acc config.Account) error {
 	var err error
 	if acc.IsFX() {
-		err = fxid.SignOut(s.client, acc.UserID, gameLanguage(acc))
+		err = fxid.SignOut(s.client, acc.UserID, fxLocale(acc))
 	} else {
 		err = vkplay.SignOut(s.client, acc.UserID)
 	}

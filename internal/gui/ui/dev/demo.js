@@ -5,7 +5,7 @@ const demo = {
   handle(cmd) {
     const accounts = demo.accounts || (demo.accounts = [
       { id: "1", name: "Tanker", login: "123456789", service: "VK Play", provider: "vkplay", last: true, autoLanguage: "ru", languages: ["ru", "en"] },
-      { id: "2", name: "EU main", login: "player@example.com", service: "FX ID", provider: "fxid", last: false, language: "pl", autoLanguage: "ru", languages: ["en", "de", "fr", "pl", "ru"] },
+      { id: "2", name: "EU main", login: "player@example.com", service: "FX ID", provider: "fxid", last: false, language: "pl", autoLanguage: "ru", languages: ["en", "de", "fr", "pl", "ru", "zh"] },
       { id: "3", name: "Supertest", login: "tester@example.com", service: "FX ID, supertest", provider: "fxid", branch: "supertest", last: false, autoLanguage: "ru", languages: ["en", "de", "fr", "pl", "ru"] },
     ]);
     const emit = (ev) => setTimeout(() => aw.recv(ev), 30);

@@ -58,12 +58,11 @@ func (s *Session) loginFX(email, name string) (config.Account, error) {
 }
 
 func fxLaunchArgs(client *http.Client, acc config.Account, token string) []string {
-	lang := gameLanguage(acc)
-	return fxid.LaunchArgs(fxid.LaunchTemplate(client), lang, languageNames[lang], acc.Email, token)
+	return fxid.LaunchArgs(fxid.LaunchTemplate(client), fxLocale(acc), languageNames[gameLanguage(acc)], acc.Email, token)
 }
 
 func fxActivateKey(client *http.Client, acc config.Account, key string) (string, error) {
-	token, err := fxid.SiteToken(client, acc.UserID, gameLanguage(acc))
+	token, err := fxid.SiteToken(client, acc.UserID, fxLocale(acc))
 	if err != nil {
 		return "", err
 	}

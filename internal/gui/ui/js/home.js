@@ -122,7 +122,7 @@ function showAddAccount() {
   });
 }
 
-const GAME_LANGUAGES = { en: "English", de: "Deutsch", fr: "Français", pl: "Polski", ru: "Русский" };
+const GAME_LANGUAGES = { en: "English", de: "Deutsch", fr: "Français", pl: "Polski", ru: "Русский", zh: "中文 (简体)" };
 
 function showGameLanguage(a) {
   const choose = (code) => { closeDialog(); send({ cmd: "language", account: a.id, value: code }); };

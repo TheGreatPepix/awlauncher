@@ -12,10 +12,11 @@ import (
 var (
 	vkLanguages = []string{"ru", "en"}
 	fxLanguages = []string{"en", "de", "fr", "pl", "ru"}
+	fxExtra     = []string{"zh"}
 )
 
 var languageNames = map[string]string{
-	"en": "english", "de": "german", "fr": "french", "pl": "polish", "ru": "russian",
+	"en": "english", "de": "german", "fr": "french", "pl": "polish", "ru": "russian", "zh": "chineses",
 }
 
 func pickLanguage(preferred, supported []string) string {
@@ -29,15 +30,29 @@ func pickLanguage(preferred, supported []string) string {
 	return "en"
 }
 
-func GameLanguages(acc config.Account) []string {
+func autoLanguages(acc config.Account) []string {
 	if acc.IsFX() {
 		return fxLanguages
 	}
 	return vkLanguages
 }
 
+func GameLanguages(acc config.Account) []string {
+	if acc.IsFX() {
+		return append(slices.Clone(fxLanguages), fxExtra...)
+	}
+	return vkLanguages
+}
+
 func AutoLanguage(acc config.Account) string {
-	return pickLanguage(platform.PreferredLanguages(), GameLanguages(acc))
+	return pickLanguage(platform.PreferredLanguages(), autoLanguages(acc))
+}
+
+func fxLocale(acc config.Account) string {
+	if lang := gameLanguage(acc); slices.Contains(fxLanguages, lang) {
+		return lang
+	}
+	return AutoLanguage(acc)
 }
 
 func gameLanguage(acc config.Account) string {
