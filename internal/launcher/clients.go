@@ -46,7 +46,7 @@ func (s *Session) AvailableClients() AvailableClients {
 			if !seen[kind] {
 				client := AvailableClient{Kind: kind, Account: strconv.FormatInt(acc.UserID, 10)}
 				if distrib, err := vkplay.LatestDistrib(s.client); err == nil {
-					client.Version = "build " + strconv.Itoa(distrib.Destination)
+					client.Version = gamefiles.VKLabel(vkplay.BuildVersion(s.client, distrib.Destination), distrib.Destination)
 				} else {
 					out.VKFailed = true
 				}

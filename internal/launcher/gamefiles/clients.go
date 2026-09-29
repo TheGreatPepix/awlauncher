@@ -3,6 +3,7 @@ package gamefiles
 import (
 	"os"
 	"path/filepath"
+	"regexp"
 	"strconv"
 	"strings"
 )
@@ -31,6 +32,29 @@ func (c Client) Name() string {
 	return "FX ID " + c.Branch
 }
 
+var gameVersionPattern = regexp.MustCompile(`^\d+(\.\d+)+$`)
+
+func VKLabel(version string, build int) string {
+	if version != "" {
+		return version
+	}
+	return "build " + strconv.Itoa(build)
+}
+
+func VKVersion(root string) string {
+	for _, f := range []struct{ name, sep string }{{"build_info.txt", "/"}, {"build_version.txt", "--"}} {
+		data, err := os.ReadFile(filepath.Join(root, f.name))
+		if err != nil {
+			continue
+		}
+		v, _, _ := strings.Cut(strings.TrimSpace(string(data)), f.sep)
+		if gameVersionPattern.MatchString(v) {
+			return v
+		}
+	}
+	return ""
+}
+
 func InstalledClients(root string) []Client {
 	var clients []Client
 	if root == "" {
@@ -39,7 +63,7 @@ func InstalledClients(root string) []Client {
 	if IsVKInstall(root) {
 		version := "installed"
 		if build, _, err := CurrentBuild(root); err == nil {
-			version = "build " + strconv.Itoa(build)
+			version = VKLabel(VKVersion(root), build)
 		}
 		clients = append(clients, Client{Kind: KindVK, Dir: root, Version: version})
 	}

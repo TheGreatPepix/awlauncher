@@ -122,7 +122,7 @@ func (s *Session) installInto(dir string) (gamefiles.Install, bool) {
 		s.ui.Say("Not usable after install:", err)
 		return gamefiles.Install{}, false
 	}
-	s.ui.Notify(fmt.Sprintf("VK Play build %d is installed", g.Build))
+	s.ui.Notify(fmt.Sprintf("VK Play %s is installed", gamefiles.VKLabel(gamefiles.VKVersion(g.Root), g.Build)))
 	return g, true
 }
 
@@ -135,10 +135,10 @@ func (s *Session) ensureUpdated(g *gamefiles.Install) bool {
 	}
 	if len(patches) == 0 {
 		gamefiles.CleanupCache(gamefiles.CacheDir(g.Root), g.Build)
-		s.ui.Sayf("Build %d is up to date.", g.Build)
+		s.ui.Sayf("VK Play %s is up to date.", gamefiles.VKLabel(gamefiles.VKVersion(g.Root), g.Build))
 		return true
 	}
-	s.ui.Sayf("Update available: %d -> %d (%d patches).", g.Build, latest, len(patches))
+	s.ui.Sayf("Update available: %s -> %s (%d patches).", gamefiles.VKLabel(gamefiles.VKVersion(g.Root), g.Build), s.vkLatestLabel(latest), len(patches))
 	if !s.ui.Yes("Install now?", true) {
 		return s.ui.Yes("Start the game without updating?", false)
 	}
@@ -151,7 +151,7 @@ func (s *Session) ensureUpdated(g *gamefiles.Install) bool {
 		s.ui.Say("After update:", err)
 		return false
 	}
-	s.ui.Notify(fmt.Sprintf("VK Play is updated to build %d", updated.Build))
+	s.ui.Notify(fmt.Sprintf("VK Play is updated to %s", gamefiles.VKLabel(gamefiles.VKVersion(updated.Root), updated.Build)))
 	*g = updated
 	return true
 }
@@ -220,17 +220,17 @@ func (s *Session) updateVK(root string) error {
 		return fmt.Errorf("update check: %w", err)
 	}
 	if len(patches) == 0 {
-		s.ui.Notify(fmt.Sprintf("VK Play build %d is up to date", g.Build))
+		s.ui.Notify(fmt.Sprintf("VK Play %s is up to date", gamefiles.VKLabel(gamefiles.VKVersion(g.Root), g.Build)))
 		return nil
 	}
-	if !s.ui.Yes(fmt.Sprintf("Update VK Play from build %d to %d (%d patches)?", g.Build, latest, len(patches)), true) {
+	if !s.ui.Yes(fmt.Sprintf("Update VK Play from %s to %s?", gamefiles.VKLabel(gamefiles.VKVersion(g.Root), g.Build), s.vkLatestLabel(latest)), true) {
 		return ErrCancelled
 	}
 	if err := gamefiles.InstallPatches(root, patches, !s.cfg.Get().NoBackups); err != nil {
 		return fmt.Errorf("update failed: %w", err)
 	}
 	s.found.game = nil
-	s.ui.Notify(fmt.Sprintf("VK Play is updated to build %d", latest))
+	s.ui.Notify(fmt.Sprintf("VK Play is updated to %s", gamefiles.VKLabel(gamefiles.VKVersion(root), latest)))
 	return nil
 }
 
@@ -244,7 +244,7 @@ func (s *Session) verifyVK(root string) error {
 		return fmt.Errorf("update check: %w", err)
 	}
 	if len(patches) > 0 {
-		s.ui.Sayf("Update available: %d -> %d. Files are checked against the latest build.", g.Build, latest)
+		s.ui.Sayf("Update available: %s -> %s. Files are checked against the latest build.", gamefiles.VKLabel(gamefiles.VKVersion(g.Root), g.Build), s.vkLatestLabel(latest))
 		if !s.ui.Yes("Install the update first?", true) {
 			return ErrCancelled
 		}
@@ -262,6 +262,10 @@ func (s *Session) verifyVK(root string) error {
 	if err := gamefiles.VerifyBeforeLaunch(s.ui, g, false); err != nil {
 		return err
 	}
-	s.ui.Notify(fmt.Sprintf("VK Play build %d: all files are checked", g.Build))
+	s.ui.Notify(fmt.Sprintf("VK Play %s: all files are checked", gamefiles.VKLabel(gamefiles.VKVersion(g.Root), g.Build)))
 	return nil
+}
+
+func (s *Session) vkLatestLabel(build int) string {
+	return gamefiles.VKLabel(vkplay.BuildVersion(&http.Client{Timeout: 30 * time.Second}, build), build)
 }

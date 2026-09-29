@@ -44,3 +44,22 @@ func writeBranchState(t *testing.T, dir string, s BranchState) {
 	}
 	writeTree(t, dir, map[string][]byte{"-gup-/awlauncher/branch.json": data})
 }
+
+func TestVKClientShowsItsGameVersion(t *testing.T) {
+	for _, tc := range []struct {
+		files map[string][]byte
+		want  string
+	}{
+		{map[string][]byte{"build_info.txt": []byte("0.566.1/9d9f975\r\n"), "build_version.txt": []byte("0.1.1--2020-01-01_00:00")}, "0.566.1"},
+		{map[string][]byte{"build_version.txt": []byte("0.566.1--2026-09-25_03:27")}, "0.566.1"},
+		{map[string][]byte{"build_info.txt": []byte("staging/abc")}, "build 442"},
+		{map[string][]byte{}, "build 442"},
+	} {
+		root := t.TempDir()
+		tc.files["-gup-/last.xml"] = []byte(`<Manifest Build="442"/>`)
+		writeTree(t, root, tc.files)
+		if got := InstalledClients(root); len(got) != 1 || got[0].Version != tc.want {
+			t.Fatalf("files %v: clients = %+v, want %q", tc.files, got, tc.want)
+		}
+	}
+}

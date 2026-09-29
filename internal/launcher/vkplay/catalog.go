@@ -6,6 +6,10 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
+	"net/url"
+	"path"
+	"regexp"
+	"strings"
 
 	"github.com/TheGreatPepix/awlauncher/internal/httpx"
 )
@@ -135,4 +139,29 @@ func LatestPatches(client *http.Client, installed int) ([]PatchInfo, int, error)
 		path[i], path[j] = path[j], path[i]
 	}
 	return path, h.Build, nil
+}
+
+var versionPattern = regexp.MustCompile(`^\d+(\.\d+)+$`)
+
+func BuildVersion(client *http.Client, build int) string {
+	index, err := fetchCatalog(client, head{Name: "armoredwarfare_hd"})
+	if err != nil {
+		return ""
+	}
+	for _, d := range index.Distribs {
+		if d.Source != 0 || d.Destination != build || d.TorrentURL == "" {
+			continue
+		}
+		name := strings.TrimSuffix(path.Base(d.TorrentURL), ".torrent")
+		data, err := httpx.Get(client, "http://pkg.dl.mail.ru/packages/"+url.PathEscape(name)+"/build_info.txt", 1<<10)
+		if err != nil {
+			return ""
+		}
+		v, _, _ := strings.Cut(strings.TrimSpace(string(data)), "/")
+		if versionPattern.MatchString(v) {
+			return v
+		}
+		return ""
+	}
+	return ""
 }
