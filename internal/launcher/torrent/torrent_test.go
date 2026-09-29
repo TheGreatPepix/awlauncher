@@ -1,12 +1,20 @@
 package torrent
 
 import (
+	"context"
 	"crypto/sha1"
+	"errors"
 	"fmt"
+	"net/http"
+	"net/http/httptest"
 	"os"
 	"path/filepath"
 	"reflect"
+	"strings"
 	"testing"
+	"time"
+
+	"github.com/TheGreatPepix/awlauncher/internal/progress"
 )
 
 func TestBadFilesFindsCorruptFile(t *testing.T) {
@@ -112,5 +120,51 @@ func TestBadFilesOverManyPieces(t *testing.T) {
 	os.WriteFile(filepath.Join(root, names[10]), []byte("short"), 0644)
 	if _, err := meta.badFiles(root); err == nil {
 		t.Fatal("a truncated file passed verification")
+	}
+}
+
+func TestPrefetchDownloadsQuietlyAndStopsOnCancel(t *testing.T) {
+	files := map[string]string{"/pack/a.bin": "first file", "/pack/b.bin": "second file"}
+	block := make(chan struct{})
+	defer close(block)
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path == "/pack/slow.bin" {
+			w.Header().Set("Content-Length", "10")
+			w.Write([]byte("sl"))
+			w.(http.Flusher).Flush()
+			select {
+			case <-r.Context().Done():
+			case <-block:
+			}
+			return
+		}
+		http.ServeContent(w, r, "", time.Time{}, strings.NewReader(files[r.URL.Path]))
+	}))
+	defer srv.Close()
+	root := t.TempDir()
+	meta := Meta{Name: "pack", Webseed: srv.URL + "/", Files: []File{{Name: "a.bin", Size: 10}, {Name: "b.bin", Size: 11}}}
+	if meta.Missing(root) != 21 {
+		t.Fatalf("missing %d before the download", meta.Missing(root))
+	}
+	board := progress.Default.Quiet()
+	if err := meta.Prefetch(context.Background(), srv.Client(), root, 2, board); err != nil {
+		t.Fatal(err)
+	}
+	if meta.Missing(root) != 0 {
+		t.Fatalf("missing %d after the download", meta.Missing(root))
+	}
+	if progress.Default.Snapshot().Active {
+		t.Fatal("prefetch showed up on the progress board")
+	}
+
+	slow := Meta{Name: "pack", Webseed: srv.URL + "/", Files: []File{{Name: "slow.bin", Size: 10}}}
+	ctx, cancel := context.WithCancel(context.Background())
+	time.AfterFunc(100*time.Millisecond, cancel)
+	start := time.Now()
+	if err := slow.Prefetch(ctx, srv.Client(), root, 1, board); !errors.Is(err, context.Canceled) {
+		t.Fatalf("error %v, want context.Canceled", err)
+	}
+	if elapsed := time.Since(start); elapsed > 2*time.Second {
+		t.Fatalf("cancelling took %s", elapsed)
 	}
 }

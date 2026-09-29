@@ -2,6 +2,7 @@ package torrent
 
 import (
 	"bytes"
+	"context"
 	"crypto/sha1"
 	"errors"
 	"fmt"
@@ -228,34 +229,65 @@ func Parse(data []byte) (Meta, error) {
 }
 
 func (t Meta) Download(client *http.Client, root string, jobs int) error {
-	if err := t.fetchFiles(client, root, jobs); err != nil {
+	missing := t.Missing(root)
+	total := t.payloadSize()
+	progress.Default.Begin("Downloading", progress.UnitBytes, total, total-missing)
+	err := t.fetchFiles(context.Background(), client, root, jobs, progress.Default)
+	progress.Default.End()
+	if err != nil {
 		return err
 	}
 	return t.verifyPieces(root)
 }
 
-func (t Meta) fetchFiles(client *http.Client, root string, jobs int) error {
-	if err := os.MkdirAll(root, 0755); err != nil {
-		return err
+func (t Meta) Prefetch(ctx context.Context, client *http.Client, root string, jobs int, board *progress.Board) error {
+	return t.fetchFiles(ctx, client, root, jobs, board)
+}
+
+func (t Meta) payloadSize() int64 {
+	var total int64
+	for _, file := range t.Files {
+		if !file.Padding {
+			total += file.Size
+		}
 	}
-	var files []File
-	var total, done int64
+	return total
+}
+
+func (t Meta) Missing(root string) int64 {
+	var missing int64
 	for _, file := range t.Files {
 		if file.Padding {
 			continue
 		}
-		files = append(files, file)
-		total += file.Size
+		missing += file.Size
 		if st, err := os.Stat(filepath.Join(root, filepath.FromSlash(file.Name))); err == nil && st.Size() == file.Size {
-			done += file.Size
+			missing -= file.Size
 		}
 	}
-	progress.Default.Begin("Downloading", progress.UnitBytes, total, done)
-	defer progress.Default.End()
+	return missing
+}
+
+func (t Meta) fetchFiles(ctx context.Context, client *http.Client, root string, jobs int, board *progress.Board) error {
+	if err := os.MkdirAll(root, 0755); err != nil {
+		return err
+	}
+	var files []File
+	for _, file := range t.Files {
+		if !file.Padding {
+			files = append(files, file)
+		}
+	}
 	return workers.Each(files, jobs, func(file File) error {
-		dst := filepath.Join(root, filepath.FromSlash(file.Name))
-		u := t.Webseed + url.PathEscape(t.Name) + "/" + file.Name
-		if err := download.File(client, u, dst, file.Name, file.Size); err != nil {
+		_, err := download.Fetch(ctx, download.Request{
+			Client:   client,
+			URL:      t.Webseed + url.PathEscape(t.Name) + "/" + file.Name,
+			Dst:      filepath.Join(root, filepath.FromSlash(file.Name)),
+			Label:    file.Name,
+			Size:     file.Size,
+			Progress: board,
+		})
+		if err != nil {
 			return fmt.Errorf("%s: %w", file.Name, err)
 		}
 		return nil

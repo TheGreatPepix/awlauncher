@@ -55,15 +55,26 @@ func (b *Board) Resume() bool { return b.gate.unpause() }
 
 func (b *Board) Paused() bool { return b.gate.paused.Load() }
 
-func (b *Board) Pauses() int64 { return b.gate.count.Load() }
+func (b *Board) Pauses() int64 {
+	if b.parent != nil {
+		return b.parent.Pauses()
+	}
+	return b.gate.count.Load()
+}
 
 func (b *Board) NoPause() { b.pausable.Store(false) }
 
 func (b *Board) Wait() {
+	if b.parent != nil {
+		b.parent.Wait()
+		return
+	}
 	if b.pausable.Load() {
 		b.gate.wait()
 	}
 }
+
+func (b *Board) Quiet() *Board { return &Board{parent: b} }
 
 func (b *Board) Reader(r io.Reader) io.Reader { return pausedReader{r, b} }
 

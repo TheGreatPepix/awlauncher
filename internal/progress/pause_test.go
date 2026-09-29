@@ -79,3 +79,35 @@ func TestNoPauseAndReader(t *testing.T) {
 		t.Fatalf("read %q", data)
 	}
 }
+
+func TestQuietBoardFollowsThePauseAndStaysOffScreen(t *testing.T) {
+	b := &Board{}
+	b.Begin("Building", UnitBytes, 100, 0)
+	defer b.End()
+	quiet := b.Quiet()
+	task := quiet.Start("next patch", 50)
+	b.Pause()
+	if quiet.Pauses() != b.Pauses() {
+		t.Fatal("the quiet board does not see the pause")
+	}
+	wrote := make(chan struct{})
+	go func() {
+		task.Write(make([]byte, 20))
+		close(wrote)
+	}()
+	select {
+	case <-wrote:
+		t.Fatal("quiet work went on while paused")
+	case <-time.After(100 * time.Millisecond):
+	}
+	b.Resume()
+	select {
+	case <-wrote:
+	case <-time.After(time.Second):
+		t.Fatal("quiet work did not go on after Resume")
+	}
+	task.Done()
+	if s := b.Snapshot(); s.Done != 0 || len(s.Tasks) != 0 {
+		t.Fatalf("quiet work shows up on the board: %+v", s)
+	}
+}

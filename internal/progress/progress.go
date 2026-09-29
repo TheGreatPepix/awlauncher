@@ -55,6 +55,7 @@ type progressSample struct {
 }
 
 type Board struct {
+	parent    *Board
 	mu        sync.Mutex
 	active    bool
 	pausable  atomic.Bool
