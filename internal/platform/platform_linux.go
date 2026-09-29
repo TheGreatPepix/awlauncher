@@ -57,6 +57,16 @@ func Language() string {
 	return "en"
 }
 
+func PreferredLanguages() []string {
+	langs := strings.FieldsFunc(os.Getenv("LANGUAGE"), func(r rune) bool { return r == ':' })
+	for _, env := range []string{"LC_ALL", "LC_MESSAGES", "LANG"} {
+		if v := os.Getenv(env); v != "" {
+			langs = append(langs, v)
+		}
+	}
+	return langs
+}
+
 func FixedDrives() []string {
 	roots := []string{HomeDir()}
 	for _, pattern := range []string{"/run/media/*", "/run/media/*/*", "/media/*", "/media/*/*", "/mnt/*"} {

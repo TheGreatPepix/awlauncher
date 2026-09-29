@@ -7,7 +7,6 @@ import (
 
 	"github.com/TheGreatPepix/awlauncher/internal/launcher/config"
 	"github.com/TheGreatPepix/awlauncher/internal/launcher/fxid"
-	"github.com/TheGreatPepix/awlauncher/internal/platform"
 )
 
 func (s *Session) loginFX(email, name string) (config.Account, error) {
@@ -21,7 +20,7 @@ func (s *Session) loginFX(email, name string) (config.Account, error) {
 	if !strings.Contains(email, "@") {
 		return config.Account{}, errors.New("not an e-mail address")
 	}
-	req := fxid.AuthRequest{Locale: platform.Language(), EmailCredentials: &fxid.EmailCredentials{Email: email}}
+	req := fxid.AuthRequest{Locale: fxLanguage(), EmailCredentials: &fxid.EmailCredentials{Email: email}}
 	resp, err := fxid.Authenticate(s.client, req)
 	if err != nil {
 		return config.Account{}, err
@@ -59,11 +58,12 @@ func (s *Session) loginFX(email, name string) (config.Account, error) {
 }
 
 func fxLaunchArgs(client *http.Client, acc config.Account, token string) []string {
-	return fxid.LaunchArgs(fxid.LaunchTemplate(client), platform.Language(), acc.Email, token)
+	lang := fxLanguage()
+	return fxid.LaunchArgs(fxid.LaunchTemplate(client), lang, languageNames[lang], acc.Email, token)
 }
 
 func fxActivateKey(client *http.Client, acc config.Account, key string) (string, error) {
-	token, err := fxid.SiteToken(client, acc.UserID, platform.Language())
+	token, err := fxid.SiteToken(client, acc.UserID, fxLanguage())
 	if err != nil {
 		return "", err
 	}

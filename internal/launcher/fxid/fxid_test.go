@@ -33,8 +33,8 @@ func TestGameEnv(t *testing.T) {
 }
 
 func TestLaunchArgs(t *testing.T) {
-	for lang, name := range map[string]string{"ru": "russian", "en": "english"} {
-		args := LaunchArgs(LaunchDefault, lang, "a@b", "JWT")
+	for lang, name := range map[string]string{"ru": "russian", "pl": "polish"} {
+		args := LaunchArgs(LaunchDefault, lang, name, "a@b", "JWT")
 		if want := []string{"-pref_language", name, "--fxid-login-token=JWT"}; !reflect.DeepEqual(args, want) {
 			t.Fatalf("args = %q, want %q", args, want)
 		}

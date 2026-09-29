@@ -328,11 +328,7 @@ func LaunchTemplate(client *http.Client) string {
 	return cfg.PublicWebClientConfig.Launcher.LaunchParams
 }
 
-func LaunchArgs(template, language, email, token string) []string {
-	languageName := map[string]string{"ru": "russian"}[language]
-	if languageName == "" {
-		languageName = "english"
-	}
+func LaunchArgs(template, language, languageName, email, token string) []string {
 	r := strings.NewReplacer(
 		"{original_command_line_param}", "",
 		"{launchParams}", "",

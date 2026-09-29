@@ -22,6 +22,7 @@ var (
 	procCryptUnprotectData       = crypt32.NewProc("CryptUnprotectData")
 	procLocalFree                = kernel32.NewProc("LocalFree")
 	procGetUserDefaultUILanguage = kernel32.NewProc("GetUserDefaultUILanguage")
+	procGetUserDefaultLocaleName = kernel32.NewProc("GetUserDefaultLocaleName")
 	procGetDiskFreeSpaceExW      = kernel32.NewProc("GetDiskFreeSpaceExW")
 	procGetDriveTypeW            = kernel32.NewProc("GetDriveTypeW")
 	procEnumWindows              = user32.NewProc("EnumWindows")
@@ -103,6 +104,15 @@ func Language() string {
 		return "ru"
 	}
 	return "en"
+}
+
+func PreferredLanguages() []string {
+	langs, _ := windows.GetUserPreferredUILanguages(windows.MUI_LANGUAGE_NAME)
+	buf := make([]uint16, 85)
+	if n, _, _ := procGetUserDefaultLocaleName.Call(uintptr(unsafe.Pointer(&buf[0])), uintptr(len(buf))); n > 0 {
+		langs = append(langs, windows.UTF16ToString(buf))
+	}
+	return langs
 }
 
 func FixedDrives() []string {
