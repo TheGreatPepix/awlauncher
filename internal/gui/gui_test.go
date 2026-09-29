@@ -91,9 +91,14 @@ func TestUIPageIsSelfContained(t *testing.T) {
 	if len(page) > 2_000_000 {
 		t.Fatalf("page is %d bytes", len(page))
 	}
-	for _, want := range []string{"<style>", "data:font/ttf;base64,", "window.aw = {", `id="page-home"`, `class="brand-logo-lid"`} {
+	for _, want := range []string{"<style>", "data:font/ttf;base64,", "window.aw = {", `id="page-home"`, `class="brand-logo-lid"`, "--spring:", "function setupPlayShapes"} {
 		if !strings.Contains(page, want) {
 			t.Errorf("page has no %q", want)
+		}
+	}
+	for _, unwanted := range []string{"const demo", "dev/demo.js", "<script src=", `rel="stylesheet"`} {
+		if strings.Contains(page, unwanted) {
+			t.Errorf("page still has %q", unwanted)
 		}
 	}
 }

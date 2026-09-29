@@ -1,0 +1,17 @@
+.brand { user-select: none; cursor: default; position: relative; z-index: 5; }
+.brand.falling { animation: brand-fall 0.9s cubic-bezier(0.5, 0, 0.9, 0.4) forwards; }
+.brand.fallen { visibility: hidden; }
+.brand.returning { animation: brand-return 2s linear both; }
+@keyframes brand-fall {
+  0% { transform: none; }
+  18% { transform: translateY(-8px) rotate(-6deg); }
+  100% { transform: translateY(110vh) rotate(40deg); }
+}
+@keyframes brand-return {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+.drawer-foot { cursor: default; user-select: none; }
+
+.pong { display: block; width: 100%; height: auto; border-radius: 16px; background: var(--surface-container-highest); cursor: none; touch-action: none; }

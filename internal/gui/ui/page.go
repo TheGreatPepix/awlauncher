@@ -4,26 +4,20 @@ import (
 	"embed"
 	"encoding/base64"
 	"errors"
+	"regexp"
 	"strings"
 )
 
-//go:embed index.html app.css app.js i18n.js fonts/Rubik-Variable.ttf
+//go:embed index.html css js fonts/Rubik-Variable.ttf
 var assets embed.FS
+
+var (
+	stylesheetTag = regexp.MustCompile(`<link rel="stylesheet" href="([^"]+)">`)
+	scriptTag     = regexp.MustCompile(`<script src="([^"]+)"( data-demo)?></script>`)
+)
 
 func Page() (string, error) {
 	html, err := assets.ReadFile("index.html")
-	if err != nil {
-		return "", err
-	}
-	css, err := assets.ReadFile("app.css")
-	if err != nil {
-		return "", err
-	}
-	js, err := assets.ReadFile("app.js")
-	if err != nil {
-		return "", err
-	}
-	i18nJS, err := assets.ReadFile("i18n.js")
 	if err != nil {
 		return "", err
 	}
@@ -31,11 +25,30 @@ func Page() (string, error) {
 	if err != nil {
 		return "", err
 	}
-	style := strings.Replace(string(css), `url("fonts/Rubik-Variable.ttf")`, `url("data:font/ttf;base64,`+base64.StdEncoding.EncodeToString(font)+`")`, 1)
-	page := strings.Replace(string(html), `<link rel="stylesheet" href="app.css">`, "<style>\n"+style+"</style>", 1)
-	page = strings.Replace(page, `<script src="i18n.js"></script>`, "<script>\n"+string(i18nJS)+"</script>", 1)
-	page = strings.Replace(page, `<script src="app.js"></script>`, "<script>\n"+string(js)+"</script>", 1)
-	if strings.Contains(page, `href="app.css"`) || strings.Contains(page, `src="app.js"`) || strings.Contains(page, `src="i18n.js"`) || strings.Contains(page, `awlauncher.ico"`) || strings.Contains(page, `url("fonts/`) {
+	fontURL := `url("data:font/ttf;base64,` + base64.StdEncoding.EncodeToString(font) + `")`
+	var missing error
+	inline := func(name string) string {
+		data, err := assets.ReadFile(name)
+		if err != nil {
+			missing = err
+		}
+		return string(data)
+	}
+	page := stylesheetTag.ReplaceAllStringFunc(string(html), func(tag string) string {
+		css := inline(stylesheetTag.FindStringSubmatch(tag)[1])
+		return "<style>\n" + strings.ReplaceAll(css, `url("../fonts/Rubik-Variable.ttf")`, fontURL) + "</style>"
+	})
+	page = scriptTag.ReplaceAllStringFunc(page, func(tag string) string {
+		m := scriptTag.FindStringSubmatch(tag)
+		if m[2] != "" {
+			return ""
+		}
+		return "<script>\n" + inline(m[1]) + "</script>"
+	})
+	if missing != nil {
+		return "", missing
+	}
+	if strings.Contains(page, `<script src=`) || strings.Contains(page, `rel="stylesheet"`) || strings.Contains(page, `url("../fonts/`) || strings.Contains(page, `awlauncher.ico"`) {
 		return "", errors.New("the embedded page references files that were not inlined")
 	}
 	return page, nil

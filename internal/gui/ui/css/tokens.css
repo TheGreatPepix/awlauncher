@@ -1,0 +1,102 @@
+@font-face {
+  font-family: "Rubik";
+  src: url("../fonts/Rubik-Variable.ttf") format("truetype");
+  font-weight: 300 900;
+  font-display: block;
+}
+
+:root {
+  --spring: linear(0, 0.0682 3.6%, 0.2229 7.1%, 0.4073 10.7%, 0.5854 14.3%, 0.7378 17.9%, 0.8567 21.4%, 0.9417 25%, 0.9971 28.6%, 1.0288 32.1%, 1.0431 35.7%, 1.0458 39.3%, 1.0417 42.9%, 1.0341 46.4%, 1.0256 50%, 1.0176 53.6%, 1.0109 57.1%, 1.0057 60.7%, 1.0021 64.3%, 0.9998 67.9%, 0.9985 71.4%, 0.998 75%, 0.9979 78.6%, 0.9981 82.1%, 0.9985 85.7%, 0.9989 89.3%, 0.9993 92.9%, 0.9996 96.4%, 1);
+  --effects: cubic-bezier(0.2, 0, 0, 1);
+  --effects-time: 0.2s;
+  --motion-fast: 0.35s;
+  --motion: 0.5s;
+  --motion-slow: 0.7s;
+  --shape-xs: 4px;
+  --shape-sm: 8px;
+  --shape-md: 12px;
+  --shape-lg: 16px;
+  --shape-lg-plus: 20px;
+  --shape-xl: 28px;
+  --shape-full: 999px;
+  --elevation-2: 0 4px 16px rgb(0 0 0 / 0.2);
+  --elevation-3: 0 8px 28px rgb(0 0 0 / 0.26);
+  --drawer-w: 232px;
+}
+
+@media (max-width: 900px) {
+  :root { --drawer-w: 200px; }
+}
+
+:root {
+  --h: 300;
+  --h3: calc(var(--h) + 60);
+  color-scheme: light;
+  --primary: oklch(0.47 0.13 var(--h));
+  --on-primary: #fff;
+  --primary-container: oklch(0.92 0.055 var(--h));
+  --on-primary-container: oklch(0.29 0.1 var(--h));
+  --secondary-container: oklch(0.915 0.035 var(--h));
+  --on-secondary-container: oklch(0.3 0.045 var(--h));
+  --tertiary-container: oklch(0.92 0.05 var(--h3));
+  --on-tertiary-container: oklch(0.3 0.08 var(--h3));
+  --surface: oklch(0.985 0.008 var(--h));
+  --surface-container-lowest: #fff;
+  --surface-container-low: oklch(0.965 0.011 var(--h));
+  --surface-container: oklch(0.95 0.013 var(--h));
+  --surface-container-high: oklch(0.935 0.014 var(--h));
+  --surface-container-highest: oklch(0.915 0.015 var(--h));
+  --on-surface: oklch(0.22 0.012 var(--h));
+  --on-surface-variant: oklch(0.43 0.02 var(--h));
+  --outline: oklch(0.6 0.02 var(--h));
+  --outline-variant: oklch(0.86 0.015 var(--h));
+  --inverse-surface: oklch(0.3 0.012 var(--h));
+  --inverse-on-surface: oklch(0.95 0.01 var(--h));
+  --error: #ba1a1a;
+  --on-error: #fff;
+  --error-container: #ffdad6;
+  --on-error-container: #410002;
+  --good: oklch(0.55 0.1 160);
+  --vk: oklch(0.58 0.17 256);
+  --fx: oklch(0.64 0.17 48);
+  --inverse-primary: oklch(0.82 0.095 var(--h));
+  --inverse-error: #ffb4ab;
+  --scrim: rgb(0 0 0 / 0.32);
+  --shadow: 0 1px 3px rgb(0 0 0 / 0.14), 0 4px 10px rgb(0 0 0 / 0.08);
+}
+
+:root[data-theme="dark"],
+:root:not([data-theme="light"]).system-dark {
+  color-scheme: dark;
+  --primary: oklch(0.82 0.095 var(--h));
+  --on-primary: oklch(0.3 0.1 var(--h));
+  --primary-container: oklch(0.39 0.11 var(--h));
+  --on-primary-container: oklch(0.92 0.05 var(--h));
+  --secondary-container: oklch(0.37 0.045 var(--h));
+  --on-secondary-container: oklch(0.9 0.03 var(--h));
+  --tertiary-container: oklch(0.39 0.08 var(--h3));
+  --on-tertiary-container: oklch(0.92 0.05 var(--h3));
+  --surface: oklch(0.175 0.01 var(--h));
+  --surface-container-lowest: oklch(0.15 0.01 var(--h));
+  --surface-container-low: oklch(0.2 0.012 var(--h));
+  --surface-container: oklch(0.22 0.013 var(--h));
+  --surface-container-high: oklch(0.255 0.014 var(--h));
+  --surface-container-highest: oklch(0.29 0.015 var(--h));
+  --on-surface: oklch(0.92 0.01 var(--h));
+  --on-surface-variant: oklch(0.8 0.02 var(--h));
+  --outline: oklch(0.62 0.02 var(--h));
+  --outline-variant: oklch(0.38 0.02 var(--h));
+  --inverse-surface: oklch(0.92 0.01 var(--h));
+  --inverse-on-surface: oklch(0.3 0.012 var(--h));
+  --error: #ffb4ab;
+  --on-error: #690005;
+  --error-container: #93000a;
+  --on-error-container: #ffdad6;
+  --good: oklch(0.78 0.1 160);
+  --vk: oklch(0.72 0.13 256);
+  --fx: oklch(0.78 0.13 55);
+  --inverse-primary: oklch(0.47 0.13 var(--h));
+  --inverse-error: #ba1a1a;
+  --scrim: rgb(0 0 0 / 0.5);
+  --shadow: 0 1px 3px rgb(0 0 0 / 0.4), 0 4px 12px rgb(0 0 0 / 0.3);
+}
