@@ -174,7 +174,7 @@ func (g *App) onMessage(message string) {
 		g.host.post(func() { g.signInCommand(cmd) })
 	case "closeGame":
 		go g.closeGame()
-	case "play", "remove", "branches", "key", "pin", "rename":
+	case "play", "remove", "branches", "key", "pin", "rename", "language":
 		acc, ok := g.findAccount(c.Account)
 		if !ok {
 			return
@@ -192,6 +192,8 @@ func (g *App) onMessage(message string) {
 			g.pin(acc)
 		case "rename":
 			g.rename(acc, c.Value)
+		case "language":
+			g.setGameLanguage(acc, c.Value)
 		}
 	}
 }

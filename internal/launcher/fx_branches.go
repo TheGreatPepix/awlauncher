@@ -98,7 +98,7 @@ func (s *Session) ActivateKey(acc config.Account) error {
 }
 
 func fxBranches(client *http.Client, acc config.Account) ([]fxid.Branch, error) {
-	token, err := fxid.SiteToken(client, acc.UserID, fxLanguage())
+	token, err := fxid.SiteToken(client, acc.UserID, gameLanguage(acc))
 	if err != nil {
 		return nil, err
 	}

@@ -190,7 +190,7 @@ func (s *Session) startVK(g gamefiles.Install, acc config.Account) error {
 	if err != nil {
 		return err
 	}
-	pid, err := platform.StartGame(g.Exe, append(g.Launch.Args(ticket.GameAccount, ticket.Code), languageArgs(vkLanguage())...), g.Root, vkplay.GameEnv(ticket.GameAccount))
+	pid, err := platform.StartGame(g.Exe, append(g.Launch.Args(ticket.GameAccount, ticket.Code), languageArgs(gameLanguage(acc))...), g.Root, vkplay.GameEnv(ticket.GameAccount))
 	if err != nil {
 		return fmt.Errorf("start the game: %w", err)
 	}

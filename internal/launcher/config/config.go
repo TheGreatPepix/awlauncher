@@ -20,6 +20,7 @@ type Account struct {
 	Provider string `json:"provider,omitempty"`
 	Email    string `json:"email,omitempty"`
 	Branch   string `json:"branch,omitempty"`
+	Language string `json:"language,omitempty"`
 }
 
 func (a Account) IsFX() bool { return a.Provider == ProviderFX }
@@ -162,6 +163,9 @@ func (c *Config) Upsert(a Account) {
 		if c.Accounts[i].UserID == a.UserID {
 			if a.Name == "" {
 				a.Name = c.Accounts[i].Name
+			}
+			if a.Language == "" {
+				a.Language = c.Accounts[i].Language
 			}
 			c.Accounts[i] = a
 			return

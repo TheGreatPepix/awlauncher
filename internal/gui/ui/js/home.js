@@ -42,6 +42,7 @@ function renderAccounts() {
         el("div", { class: "tile-meta" },
           el("span", { class: "tag " + a.provider, text: a.provider === "fxid" ? "FX ID" : "VK Play" }),
           a.branch ? el("span", { class: "tag branch", text: a.branch }) : null,
+          a.language ? el("span", { class: "tag branch", title: t("Game language"), text: a.language }) : null,
           op ? el("span", { class: "tile-op", title: tb(op.title) }, el("i", { class: "pulse" }), tb(op.title)) : null,
           a.login !== a.name && !op ? el("span", { class: "login", text: a.login }) : null),
       ),
@@ -98,6 +99,7 @@ function openMenu(anchor, a) {
     !a.last ? menuItem("pin", t("Make main"), () => { select(a.id); send({ cmd: "pin", account: a.id }); }) : null,
     a.provider === "fxid" ? menuItem("branch", t("Client branches"), () => send({ cmd: "branches", account: a.id }), null, taken) : null,
     a.provider === "fxid" ? menuItem("key", t("Activate key"), () => send({ cmd: "key", account: a.id }), null, taken) : null,
+    menuItem("globe", t("Game language"), () => showGameLanguage(a)),
     menuItem("edit", t("Rename"), () => showRename(a)),
     el("hr"),
     menuItem("delete", t("Remove"), () => confirmRemove(a), "danger", taken),
@@ -114,6 +116,28 @@ function showAddAccount() {
       el("div", { class: "choices" },
         choice("vkplay", "VK Play"),
         choice("fxid", "FX ID")),
+    ],
+    actions: [{ label: t("Cancel"), onClick: closeDialog }],
+    onEscape: closeDialog,
+  });
+}
+
+const GAME_LANGUAGES = { en: "English", de: "Deutsch", fr: "Français", pl: "Polski", ru: "Русский" };
+
+function showGameLanguage(a) {
+  const choose = (code) => { closeDialog(); send({ cmd: "language", account: a.id, value: code }); };
+  const option = (code, label) => el("button", { class: "option state" + ((a.language || "") === code ? " on" : ""), onclick: () => choose(code) },
+    el("span", { class: "grow", text: label }),
+    (a.language || "") === code ? icon("check") : null);
+  openDialog({
+    iconName: "globe",
+    title: t("Game language"),
+    body: [
+      el("p", { text: `${a.service} · ${a.name}` }),
+      el("div", { class: "options" },
+        option("", t("Automatically ({lang})", { lang: GAME_LANGUAGES[a.autoLanguage] || a.autoLanguage })),
+        ...(a.languages || []).map((code) => option(code, GAME_LANGUAGES[code] || code))),
+      el("p", { class: "hint", text: t("Automatically follows the Windows languages.") }),
     ],
     actions: [{ label: t("Cancel"), onClick: closeDialog }],
     onEscape: closeDialog,

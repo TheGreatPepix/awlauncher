@@ -193,6 +193,14 @@ func (g *App) rename(acc config.Account, name string) {
 	g.notice("Renamed to " + acc.Label())
 }
 
+func (g *App) setGameLanguage(acc config.Account, code string) {
+	if err := g.session.SetGameLanguage(acc, code); err != nil {
+		g.notice(err.Error())
+		return
+	}
+	g.emitState(false)
+}
+
 func (g *App) closeGame() {
 	if err := g.session.CloseGame(); err != nil {
 		g.notice(err.Error())

@@ -11,13 +11,16 @@ import (
 )
 
 type uiAccount struct {
-	ID       string `json:"id"`
-	Name     string `json:"name"`
-	Login    string `json:"login"`
-	Service  string `json:"service"`
-	Provider string `json:"provider"`
-	Branch   string `json:"branch,omitempty"`
-	Last     bool   `json:"last"`
+	ID        string   `json:"id"`
+	Name      string   `json:"name"`
+	Login     string   `json:"login"`
+	Service   string   `json:"service"`
+	Provider  string   `json:"provider"`
+	Branch    string   `json:"branch,omitempty"`
+	Language  string   `json:"language,omitempty"`
+	AutoLang  string   `json:"autoLanguage"`
+	Languages []string `json:"languages"`
+	Last      bool     `json:"last"`
 }
 
 type uiState struct {
@@ -48,6 +51,7 @@ func accountViews(cfg config.Config) []uiAccount {
 		views = append(views, uiAccount{
 			ID: strconv.FormatInt(a.UserID, 10), Name: a.DisplayName(), Login: a.Login(), Service: a.Service(),
 			Provider: provider, Branch: a.Branch, Last: a.UserID == cfg.LastUserID,
+			Language: a.Language, AutoLang: launcher.AutoLanguage(a), Languages: launcher.GameLanguages(a),
 		})
 	}
 	return views

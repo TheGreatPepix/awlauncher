@@ -61,7 +61,7 @@ func (s *Session) launchFX(acc config.Account, branch, root, mainRoot string, as
 	if err != nil {
 		return err
 	}
-	launchToken, err := fxid.GameToken(s.client, acc.UserID, fxLanguage())
+	launchToken, err := fxid.GameToken(s.client, acc.UserID, gameLanguage(acc))
 	if err != nil {
 		return err
 	}
@@ -93,7 +93,7 @@ func (s *Session) syncFX(acc config.Account, branch, root, mainRoot string, ask,
 	} else if name != "" {
 		return gamefiles.BranchState{}, errors.New("the game is already running")
 	}
-	session, err := fxid.Session(s.client, acc.UserID, fxLanguage())
+	session, err := fxid.Session(s.client, acc.UserID, gameLanguage(acc))
 	if err != nil {
 		return gamefiles.BranchState{}, err
 	}
@@ -183,7 +183,7 @@ func (s *Session) downloadFX(acc config.Account, kind, branch string) error {
 }
 
 func (s *Session) updateFX(acc config.Account, c gamefiles.Client) error {
-	session, err := fxid.Session(s.client, acc.UserID, fxLanguage())
+	session, err := fxid.Session(s.client, acc.UserID, gameLanguage(acc))
 	if err != nil {
 		return err
 	}

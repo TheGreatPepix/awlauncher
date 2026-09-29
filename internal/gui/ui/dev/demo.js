@@ -4,9 +4,9 @@ const demo = {
   timer: 0,
   handle(cmd) {
     const accounts = demo.accounts || (demo.accounts = [
-      { id: "1", name: "Tanker", login: "123456789", service: "VK Play", provider: "vkplay", last: true },
-      { id: "2", name: "EU main", login: "player@example.com", service: "FX ID", provider: "fxid", last: false },
-      { id: "3", name: "Supertest", login: "tester@example.com", service: "FX ID, supertest", provider: "fxid", branch: "supertest", last: false },
+      { id: "1", name: "Tanker", login: "123456789", service: "VK Play", provider: "vkplay", last: true, autoLanguage: "ru", languages: ["ru", "en"] },
+      { id: "2", name: "EU main", login: "player@example.com", service: "FX ID", provider: "fxid", last: false, language: "pl", autoLanguage: "ru", languages: ["en", "de", "fr", "pl", "ru"] },
+      { id: "3", name: "Supertest", login: "tester@example.com", service: "FX ID, supertest", provider: "fxid", branch: "supertest", last: false, autoLanguage: "ru", languages: ["en", "de", "fr", "pl", "ru"] },
     ]);
     const emit = (ev) => setTimeout(() => aw.recv(ev), 30);
     const ops = demo.ops || (demo.ops = []);
@@ -72,6 +72,10 @@ const demo = {
         emit({ type: "done", status: "ok", title: "Removing", message: "Account removed" });
         const gone = accounts.findIndex((x) => x.id === cmd.account);
         if (gone >= 0) accounts.splice(gone, 1);
+        emit(stateEv());
+        break;
+      case "language":
+        accounts.find((x) => x.id === cmd.account).language = cmd.value;
         emit(stateEv());
         break;
       case "rename": {
