@@ -112,6 +112,10 @@ input { font: inherit; color: inherit; }
   border-right: 1px solid var(--outline-variant);
 }
 .brand { display: flex; align-items: center; gap: 12px; padding: 4px 8px; }
+.brand { user-select: none; cursor: default; position: relative; z-index: 5; }
+.brand.falling { animation: brand-fall 0.9s cubic-bezier(0.5, 0, 0.9, 0.4) forwards; }
+.brand.fallen { visibility: hidden; }
+.brand.returning { animation: brand-return 2s linear both; }
 .brand-logo { width: 44px; height: 44px; flex: none; overflow: visible; }
 .brand-logo-gradient-top { stop-color: oklch(0.63 0.11 calc(var(--h) - 8)); }
 .brand-logo-gradient-bottom { stop-color: oklch(0.39 0.12 calc(var(--h) - 8)); }
@@ -130,6 +134,15 @@ input { font: inherit; color: inherit; }
   86% { transform: rotate(-14deg); }
   88% { transform: rotate(-19deg); }
   90% { transform: rotate(2deg); }
+}
+@keyframes brand-fall {
+  0% { transform: none; }
+  18% { transform: translateY(-8px) rotate(-6deg); }
+  100% { transform: translateY(110vh) rotate(40deg); }
+}
+@keyframes brand-return {
+  from { opacity: 0; }
+  to { opacity: 1; }
 }
 @keyframes brand-hop {
   0%, 86%, 92%, 100% { transform: translateY(0); }

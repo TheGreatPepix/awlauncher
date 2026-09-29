@@ -1019,8 +1019,40 @@ function drawWave(now) {
 }
 
 
+function setupLogoDrop() {
+  const logo = document.querySelector(".brand-logo");
+  const brand = logo.closest(".brand");
+  let clicks = 0, last = 0, busy = false;
+  const once = (name, then) => {
+    const done = (e) => {
+      if (e.target !== brand || e.animationName !== name) return;
+      brand.removeEventListener("animationend", done);
+      then();
+    };
+    brand.addEventListener("animationend", done);
+  };
+  logo.addEventListener("click", () => {
+    if (busy) return;
+    const now = Date.now();
+    clicks = now - last > 2000 ? 1 : clicks + 1;
+    last = now;
+    if (clicks < 15) return;
+    clicks = 0;
+    busy = true;
+    once("brand-fall", () => {
+      brand.classList.replace("falling", "fallen");
+      setTimeout(() => {
+        once("brand-return", () => { brand.classList.remove("returning"); busy = false; });
+        brand.classList.replace("fallen", "returning");
+      }, 10000);
+    });
+    brand.classList.add("falling");
+  });
+}
+
 function setup() {
   setupTheme();
+  setupLogoDrop();
   collectStatic();
   applyLanguage();
   for (const b of $("lang-mode").children) b.addEventListener("click", () => setLanguage(b.dataset.lang));
