@@ -3,10 +3,12 @@ package gui
 import (
 	"errors"
 	"fmt"
+	"io"
 	"log"
 	"os"
 	"path/filepath"
 	"runtime"
+	"strings"
 	"sync"
 	"time"
 
@@ -14,7 +16,9 @@ import (
 	"github.com/TheGreatPepix/awlauncher/internal/gui/startup"
 	"github.com/TheGreatPepix/awlauncher/internal/gui/ui"
 	"github.com/TheGreatPepix/awlauncher/internal/gui/update"
+	"github.com/TheGreatPepix/awlauncher/internal/launcher"
 	"github.com/TheGreatPepix/awlauncher/internal/launcher/config"
+	"github.com/TheGreatPepix/awlauncher/internal/logfile"
 	"github.com/TheGreatPepix/awlauncher/internal/platform"
 	"github.com/jchv/go-webview2/pkg/edge"
 	"github.com/jchv/go-webview2/webviewloader"
@@ -69,6 +73,14 @@ func Run() int {
 	logs := &logBuffer{}
 	log.SetFlags(0)
 	log.SetOutput(logs)
+	if dir, err := platform.DataDir(); err == nil {
+		if file, err := logfile.Open(filepath.Join(dir, "logs")); err == nil {
+			defer file.Close()
+			_ = file.CatchCrashes()
+			log.SetOutput(io.MultiWriter(logs, file))
+			file.Write([]byte(fmt.Sprintf("AWLauncher %s started (%s)", launcher.Version, strings.Join(os.Args[1:], " "))))
+		}
+	}
 	cfg, err := config.Load()
 	if err != nil {
 		messageBox(0, windowTitle, err.Error(), 0x10)
