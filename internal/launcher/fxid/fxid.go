@@ -156,7 +156,7 @@ func call(client *http.Client, method, path, accessToken string, body, out any) 
 		return err
 	}
 	switch {
-	case resp.StatusCode == http.StatusOK:
+	case resp.StatusCode >= 200 && resp.StatusCode < 300:
 	case resp.StatusCode == http.StatusUnauthorized, resp.StatusCode == http.StatusForbidden,
 		resp.StatusCode >= 300 && resp.StatusCode < 400:
 		return fmt.Errorf("%w (HTTP %d)", ErrNoAccess, resp.StatusCode)

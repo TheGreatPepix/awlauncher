@@ -133,6 +133,48 @@ func TestFXBranches(t *testing.T) {
 	}
 }
 
+func TestFXRemoveAccountSignsOut(t *testing.T) {
+	dataDir := t.TempDir()
+	t.Setenv("LOCALAPPDATA", dataDir)
+	t.Setenv("XDG_DATA_HOME", dataDir)
+	loggedOut := false
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch r.URL.Path {
+		case "/api/v1/auth/authenticate_with_external_id/aw":
+			json.NewEncoder(w).Encode(fxid.AuthResponse{State: 99, Tokens: &fxid.Tokens{RefreshToken: "r", GameAccessToken: "g", AccessToken: "site"}})
+		case "/api/v1/auth/logout":
+			if r.Method != http.MethodGet || r.Header.Get("Authorization") != "Bearer site" {
+				t.Errorf("logout %s with %q", r.Method, r.Header.Get("Authorization"))
+			}
+			loggedOut = true
+			w.WriteHeader(http.StatusNoContent)
+		default:
+			t.Errorf("unexpected %s %s", r.Method, r.URL.Path)
+		}
+	}))
+	defer srv.Close()
+	old := fxid.Base
+	fxid.Base = srv.URL
+	defer func() { fxid.Base = old }()
+	acc := config.Account{UserID: fxid.AccountID("a@b"), Provider: config.ProviderFX, Email: "a@b"}
+	if err := tokens.Save(acc.UserID, "r"); err != nil {
+		t.Fatal(err)
+	}
+	s := &Session{ui: &fakeUI{}, cfg: config.NewStore(config.Config{Accounts: []config.Account{acc}}), client: srv.Client(), found: &foundGame{}}
+	if err := s.RemoveAccount(acc); err != nil {
+		t.Fatal(err)
+	}
+	if !loggedOut {
+		t.Fatal("logout was not called")
+	}
+	if _, err := tokens.Load(acc.UserID); !errors.Is(err, tokens.ErrNeedLogin) {
+		t.Fatalf("token kept: %v", err)
+	}
+	if _, ok := s.cfg.Find(acc.UserID); ok {
+		t.Fatal("account kept in config")
+	}
+}
+
 func TestFXActivateKey(t *testing.T) {
 	dataDir := t.TempDir()
 	t.Setenv("LOCALAPPDATA", dataDir)

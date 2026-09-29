@@ -54,6 +54,20 @@ func Session(client *http.Client, userID int64, locale string) (Tokens, error) {
 	return *resp.Tokens, nil
 }
 
+func SignOut(client *http.Client, userID int64, locale string) error {
+	t, err := Session(client, userID, locale)
+	switch {
+	case errors.Is(err, tokens.ErrNeedLogin):
+	case err != nil:
+		log.Print("Warning: could not reach FX ID to end the session: ", err)
+	case t.AccessToken != "":
+		if err := call(client, http.MethodGet, "/api/v1/auth/logout", t.AccessToken, nil, nil); err != nil {
+			log.Print("Warning: the server did not confirm the sign-out: ", err)
+		}
+	}
+	return tokens.Clear(userID)
+}
+
 func SiteToken(client *http.Client, userID int64, locale string) (string, error) {
 	t, err := Session(client, userID, locale)
 	if err != nil {

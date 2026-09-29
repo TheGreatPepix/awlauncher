@@ -5,8 +5,9 @@ import (
 	"strings"
 
 	"github.com/TheGreatPepix/awlauncher/internal/launcher/config"
-	"github.com/TheGreatPepix/awlauncher/internal/launcher/tokens"
+	"github.com/TheGreatPepix/awlauncher/internal/launcher/fxid"
 	"github.com/TheGreatPepix/awlauncher/internal/launcher/vkplay"
+	"github.com/TheGreatPepix/awlauncher/internal/platform"
 )
 
 func (s *Session) AddAccount(provider string) error {
@@ -33,7 +34,7 @@ func (s *Session) AddAccount(provider string) error {
 func (s *Session) RemoveAccount(acc config.Account) error {
 	var err error
 	if acc.IsFX() {
-		err = tokens.Clear(acc.UserID)
+		err = fxid.SignOut(s.client, acc.UserID, platform.Language())
 	} else {
 		err = vkplay.SignOut(s.client, acc.UserID)
 	}
