@@ -56,7 +56,7 @@ const demo = {
             clearInterval(demo.timer);
             emit({ type: "log", text: "Downloading   done: 3.4 GiB in 1m19s, 44.0 MiB/s\n" });
             end(1);
-            emit({ type: "done", status: "launched", title: "Starting Tanker" });
+            emit({ type: "done", status: "launched", title: "Starting Tanker", hidden: !demo.keepOpen });
             emit({ type: "game", running: true });
           }
         }, 250);

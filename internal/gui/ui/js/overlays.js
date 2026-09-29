@@ -71,7 +71,7 @@ function onDone(ev) {
     case "error":
       toast(ev.message, "error", { title: tb(ev.title), action: { label: t("Logs"), onClick: () => showPage("activity") } });
       break;
-    case "launched": toast(t("Game started. AWLauncher is in the notification area.")); break;
+    case "launched": if (ev.hidden) toast(t("Game started. AWLauncher is in the notification area.")); break;
     case "cancelled": toast(t("Cancelled")); break;
     case "ok":
       if (ev.message) toast(tb(ev.message), "ok");
