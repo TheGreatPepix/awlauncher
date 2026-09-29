@@ -73,7 +73,7 @@ func (s *Session) launchFX(acc config.Account, branch, root, mainRoot string, as
 	if err != nil {
 		return err
 	}
-	pid, err := platform.StartGame(exe, fxLaunchArgs(s.client, acc, launchToken), root)
+	pid, err := platform.StartGame(exe, fxLaunchArgs(s.client, acc, launchToken), root, fxid.GameEnv(launchToken))
 	if err != nil {
 		return fmt.Errorf("start the game: %w", err)
 	}

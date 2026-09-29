@@ -3,9 +3,20 @@ package platform
 import (
 	"os"
 	"path/filepath"
+	"strings"
 )
 
 const GameExe = "ArmoredWarfare.exe"
+
+func gameEnv(base, extra []string) []string {
+	env := make([]string, 0, len(base)+len(extra))
+	for _, kv := range base {
+		if !strings.HasPrefix(strings.ToUpper(kv), "GC_") {
+			env = append(env, kv)
+		}
+	}
+	return append(env, extra...)
+}
 
 func RunningProcess(names ...string) (string, error) {
 	for _, name := range names {

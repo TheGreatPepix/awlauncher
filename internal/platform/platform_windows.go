@@ -61,9 +61,9 @@ func OpenBrowser(link string) error {
 	return cmd.Process.Release()
 }
 
-func StartGame(exe string, args []string, dir string) (int, error) {
+func StartGame(exe string, args []string, dir string, env []string) (int, error) {
 	cmd := exec.Command(exe, args...)
-	cmd.Dir = dir
+	cmd.Dir, cmd.Env = dir, gameEnv(os.Environ(), env)
 	if err := cmd.Start(); err != nil {
 		return 0, err
 	}

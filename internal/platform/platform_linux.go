@@ -219,13 +219,13 @@ func runnerLog() (io.WriteCloser, string, error) {
 	return f, path, err
 }
 
-func runnerCommand(exe string, args []string, dir string) (*exec.Cmd, string, error) {
+func runnerCommand(exe string, args []string, dir string, extra []string) (*exec.Cmd, string, error) {
 	runner, env, err := gameRunner()
 	if err != nil {
 		return nil, "", err
 	}
 	cmd := exec.Command(runner[0], append(append(runner[1:len(runner):len(runner)], exe), args...)...)
-	cmd.Dir, cmd.Env = dir, env
+	cmd.Dir, cmd.Env = dir, gameEnv(env, extra)
 	log, path, err := runnerLog()
 	if err != nil {
 		return nil, "", err
@@ -234,8 +234,8 @@ func runnerCommand(exe string, args []string, dir string) (*exec.Cmd, string, er
 	return cmd, path, nil
 }
 
-func StartGame(exe string, args []string, dir string) (int, error) {
-	cmd, logPath, err := runnerCommand(exe, args, dir)
+func StartGame(exe string, args []string, dir string, env []string) (int, error) {
+	cmd, logPath, err := runnerCommand(exe, args, dir, env)
 	if err != nil {
 		return 0, err
 	}
@@ -250,7 +250,7 @@ func StartGame(exe string, args []string, dir string) (int, error) {
 }
 
 func RunRedist(path string) error {
-	cmd, logPath, err := runnerCommand(path, []string{"/install", "/passive", "/norestart"}, filepath.Dir(path))
+	cmd, logPath, err := runnerCommand(path, []string{"/install", "/passive", "/norestart"}, filepath.Dir(path), nil)
 	if err != nil {
 		return err
 	}

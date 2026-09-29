@@ -8,8 +8,28 @@ import (
 )
 
 func fakeJWT(exp int64) string {
+	return jwtWith(fmt.Sprintf(`{"exp":%d}`, exp))
+}
+
+func jwtWith(payload string) string {
 	enc := base64.RawURLEncoding.EncodeToString
-	return enc([]byte(`{"alg":"HS256"}`)) + "." + enc([]byte(fmt.Sprintf(`{"exp":%d}`, exp))) + ".sig"
+	return enc([]byte(`{"alg":"HS256"}`)) + "." + enc([]byte(payload)) + ".sig"
+}
+
+func TestGameEnv(t *testing.T) {
+	for payload, want := range map[string][]string{
+		`{"external_id":108262461}`:   {"GC_PERS_ID=108262461"},
+		`{"external_id":"108262461"}`: {"GC_PERS_ID=108262461"},
+		`{"external_id":"..\\x"}`:     nil,
+		`{"sub":"430"}`:               nil,
+	} {
+		if got := GameEnv(jwtWith(payload)); !reflect.DeepEqual(got, want) {
+			t.Fatalf("%s: got %q, want %q", payload, got, want)
+		}
+	}
+	if GameEnv("not-a-jwt") != nil {
+		t.Fatal("accepted a non-JWT")
+	}
 }
 
 func TestLaunchArgs(t *testing.T) {

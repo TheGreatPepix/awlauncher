@@ -277,22 +277,37 @@ func GetBranchManifest(client *http.Client, accessToken, branch string) (BranchM
 	return m, raw, nil
 }
 
-func JWTExpiry(token string) (time.Time, bool) {
+func jwtClaims(token string, out any) bool {
 	parts := strings.Split(token, ".")
 	if len(parts) != 3 {
-		return time.Time{}, false
+		return false
 	}
 	payload, err := base64.RawURLEncoding.DecodeString(parts[1])
-	if err != nil {
-		return time.Time{}, false
-	}
+	return err == nil && json.Unmarshal(payload, out) == nil
+}
+
+func JWTExpiry(token string) (time.Time, bool) {
 	var claims struct {
 		Exp int64 `json:"exp"`
 	}
-	if json.Unmarshal(payload, &claims) != nil || claims.Exp == 0 {
+	if !jwtClaims(token, &claims) || claims.Exp == 0 {
 		return time.Time{}, false
 	}
 	return time.Unix(claims.Exp, 0), true
+}
+
+func GameEnv(gameToken string) []string {
+	var claims struct {
+		ExternalID json.RawMessage `json:"external_id"`
+	}
+	if !jwtClaims(gameToken, &claims) {
+		return nil
+	}
+	id := strings.Trim(string(claims.ExternalID), `"`)
+	if id == "" || strings.Trim(id, "0123456789") != "" {
+		return nil
+	}
+	return []string{"GC_PERS_ID=" + id}
 }
 
 func LaunchTemplate(client *http.Client) string {

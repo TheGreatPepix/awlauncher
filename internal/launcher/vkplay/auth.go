@@ -30,6 +30,10 @@ type GameTicket struct {
 	Code        string   `xml:"Code,attr"`
 }
 
+func GameEnv(gameAccount string) []string {
+	return []string{"GC_TYPE_ID=0", "GC_PROJECT_ID=" + GameProjectID, "GC_PERS_ID=" + gameAccount}
+}
+
 func ExchangeBrowserCode(client *http.Client, code string) (Tokens, error) {
 	var tokens Tokens
 	if !bridge.ValidCode(code) {
