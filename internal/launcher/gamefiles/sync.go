@@ -9,6 +9,7 @@ import (
 	"log"
 	"net/http"
 	"os"
+	"runtime"
 	"strings"
 	"sync"
 	"time"
@@ -82,7 +83,7 @@ func syncFiles(root string, set fileSet, opt syncOptions) ([]remoteFile, error) 
 	if len(check) > 0 {
 		var mu sync.Mutex
 		progress.Default.Begin("Checking", progress.UnitBytes, checkSize, 0)
-		err := workers.Each(check, 2, func(f remoteFile) error {
+		err := workers.Each(check, checkJobs(root), func(f remoteFile) error {
 			dst, _ := SafePath(root, f.Path)
 			task := progress.Default.Start(f.Path, f.Size)
 			ok, err := fileMatches(dst, f.Size, f.Hash, set.NewHash, task)
@@ -173,8 +174,22 @@ func fileMatches(path string, size int64, want string, newHash func() hash.Hash,
 	if track != nil {
 		w = io.MultiWriter(h, track)
 	}
-	if _, err := io.Copy(w, progress.Default.Reader(f)); err != nil {
+	buf := readBuffers.Get().(*[]byte)
+	defer readBuffers.Put(buf)
+	if _, err := io.CopyBuffer(w, progress.Default.Reader(f), *buf); err != nil {
 		return false, err
 	}
 	return strings.EqualFold(hex.EncodeToString(h.Sum(nil)), want), nil
+}
+
+var readBuffers = sync.Pool{New: func() any {
+	buf := make([]byte, 1<<20)
+	return &buf
+}}
+
+func checkJobs(root string) int {
+	if platform.SolidState(root) {
+		return min(max(runtime.NumCPU(), 2), 8)
+	}
+	return 2
 }

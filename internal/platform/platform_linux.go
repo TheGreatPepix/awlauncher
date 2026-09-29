@@ -258,3 +258,17 @@ func RunRedist(path string) error {
 	log.Printf("Installing through %s; the first run may download Proton. Output: %s\n", filepath.Base(cmd.Path), logPath)
 	return cmd.Run()
 }
+
+func SolidState(dir string) bool {
+	var st unix.Stat_t
+	if unix.Stat(existingDir(dir), &st) != nil {
+		return false
+	}
+	block := fmt.Sprintf("/sys/dev/block/%d:%d", unix.Major(uint64(st.Dev)), unix.Minor(uint64(st.Dev)))
+	for _, path := range []string{block + "/queue/rotational", block + "/../queue/rotational"} {
+		if data, err := os.ReadFile(path); err == nil {
+			return strings.TrimSpace(string(data)) == "0"
+		}
+	}
+	return false
+}

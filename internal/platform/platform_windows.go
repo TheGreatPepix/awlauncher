@@ -199,3 +199,40 @@ func CloseGame(grace time.Duration) error {
 	}
 	return nil
 }
+
+const ioctlStorageQueryProperty = 0x2D1400
+
+func SolidState(dir string) bool {
+	path, err := windows.UTF16PtrFromString(existingDir(dir))
+	if err != nil {
+		return false
+	}
+	var mount, volume [windows.MAX_PATH + 1]uint16
+	if windows.GetVolumePathName(path, &mount[0], uint32(len(mount))) != nil {
+		return false
+	}
+	if windows.GetVolumeNameForVolumeMountPoint(&mount[0], &volume[0], uint32(len(volume))) != nil {
+		return false
+	}
+	device, err := windows.UTF16PtrFromString(strings.TrimSuffix(windows.UTF16ToString(volume[:]), `\`))
+	if err != nil {
+		return false
+	}
+	h, err := windows.CreateFile(device, 0, windows.FILE_SHARE_READ|windows.FILE_SHARE_WRITE, nil, windows.OPEN_EXISTING, 0, 0)
+	if err != nil {
+		return false
+	}
+	defer windows.CloseHandle(h)
+	query := struct {
+		PropertyID, QueryType uint32
+		Extra                 [4]byte
+	}{PropertyID: 7}
+	var seek struct {
+		Version, Size     uint32
+		IncursSeekPenalty uint8
+		_                 [3]byte
+	}
+	var got uint32
+	err = windows.DeviceIoControl(h, ioctlStorageQueryProperty, (*byte)(unsafe.Pointer(&query)), uint32(unsafe.Sizeof(query)), (*byte)(unsafe.Pointer(&seek)), uint32(unsafe.Sizeof(seek)), &got, nil)
+	return err == nil && got >= 9 && seek.IncursSeekPenalty == 0
+}
