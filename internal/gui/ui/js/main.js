@@ -94,7 +94,7 @@ function setup() {
   $("add-empty").addEventListener("click", showAddAccount);
   for (const b of $("mods-mode").children) b.addEventListener("click", () => send({ cmd: "allowMods", value: b.dataset.mode }));
   $("data-open").addEventListener("click", () => send({ cmd: "openDataFolder" }));
-  $("app-exit").addEventListener("click", () => send({ cmd: "exit" }));
+  $("app-exit").addEventListener("click", confirmExit);
   $("update-check").addEventListener("click", checkUpdate);
   for (const b of $("autostart-mode").children) b.addEventListener("click", () => { renderAutostart(b.dataset.mode); send({ cmd: "autostart", value: b.dataset.mode }); });
   $("progress-pause").addEventListener("click", () => send({ cmd: state.progress.paused ? "resume" : "pause" }));

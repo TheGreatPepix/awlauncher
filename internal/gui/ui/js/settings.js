@@ -80,3 +80,20 @@ function onUpdate(ev) {
   if (notes) body.push(el("pre", { class: "context", text: notes.length > 1500 ? notes.slice(0, 1500) + "…" : notes }));
   whenDialogFree(() => openDialog({ iconName: "update", title: t("AWLauncher {latest} is available", { latest: ev.latest }), body, actions, onEscape: closeDialog }));
 }
+
+function confirmExit() {
+  if (!busy()) {
+    send({ cmd: "exit" });
+    return;
+  }
+  openDialog({
+    iconName: "logout", iconClass: "error",
+    title: t("Exit AWLauncher?"),
+    body: [el("p", { text: t("{ops} is still in progress. If you exit now, it is interrupted.", { ops: opsTitle() }) })],
+    actions: [
+      { label: t("Cancel"), onClick: closeDialog },
+      { label: t("Exit"), kind: "danger", primary: true, onClick: () => { closeDialog(); send({ cmd: "exit" }); } },
+    ],
+    onEscape: closeDialog,
+  });
+}
