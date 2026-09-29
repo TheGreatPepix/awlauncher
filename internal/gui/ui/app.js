@@ -1047,6 +1047,7 @@ function setupLogoDrop() {
       }, 10000);
     });
     brand.classList.add("falling");
+    toast(t("Stop fooling around") + " (╯°□°)╯︵ ┻━┻");
   });
 }
 
