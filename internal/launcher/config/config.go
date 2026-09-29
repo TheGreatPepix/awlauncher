@@ -189,53 +189,6 @@ func (c *Config) DefaultAccount() (Account, bool) {
 	}
 	return Account{}, false
 }
-func tokenFile(userID int64) (string, error) {
-	dir, err := platform.DataDir()
-	if err != nil {
-		return "", err
-	}
-	return filepath.Join(dir, "accounts", strconv.FormatInt(userID, 10)+".bin"), nil
-}
-func SaveRefreshToken(userID int64, token string) error {
-	path, err := tokenFile(userID)
-	if err != nil {
-		return err
-	}
-	protected, err := platform.Protect([]byte(token))
-	if err != nil {
-		return err
-	}
-	if err := os.MkdirAll(filepath.Dir(path), 0700); err != nil {
-		return err
-	}
-	return os.WriteFile(path, protected, 0600)
-}
-func LoadRefreshToken(userID int64) (string, error) {
-	path, err := tokenFile(userID)
-	if err != nil {
-		return "", err
-	}
-	data, err := os.ReadFile(path)
-	if err != nil {
-		return "", err
-	}
-	clear, err := platform.Unprotect(data)
-	if err != nil {
-		return "", err
-	}
-	return strings.TrimSpace(string(clear)), nil
-}
-func ClearRefreshToken(userID int64) error {
-	path, err := tokenFile(userID)
-	if err != nil {
-		return err
-	}
-	err = os.Remove(path)
-	if errors.Is(err, os.ErrNotExist) {
-		return nil
-	}
-	return err
-}
 
 func (c Config) BranchDir(branch string) string {
 	if dir := c.BranchGames[strings.ToLower(branch)]; dir != "" {

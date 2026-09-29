@@ -21,12 +21,14 @@ type GameInfo struct {
 	Free        int64              `json:"free"`
 	BranchPaths map[string]string  `json:"branchPaths,omitempty"`
 }
+
 type AvailableClient struct {
 	Kind    string `json:"kind"`
 	Branch  string `json:"branch,omitempty"`
 	Account string `json:"account"`
 	Version string `json:"version,omitempty"`
 }
+
 type AvailableClients struct {
 	Clients  []AvailableClient `json:"clients"`
 	Failed   bool              `json:"failed,omitempty"`
@@ -74,12 +76,13 @@ func (s *Session) AvailableClients() AvailableClients {
 			if strings.EqualFold(b.Name, gamefiles.DefaultBranch) {
 				clientKind = gamefiles.KindFX
 			}
-			out.Clients = append(out.Clients, AvailableClient{Kind: clientKind, Branch: b.Name, Account: strconv.FormatInt(acc.UserID, 10), Version: b.Version})
+			out.Clients = append(out.Clients, AvailableClient{Kind: clientKind, Branch: b.Name, Account: strconv.FormatInt(acc.UserID, 10), Version: b.Manifest.Version()})
 			seen[k] = true
 		}
 	}
 	return out
 }
+
 func (s *Session) DownloadClient(acc config.Account, kind, branch string) error {
 	return s.withLogin(acc, func(acc config.Account) error { return s.downloadClient(acc, kind, branch) })
 }
@@ -92,54 +95,44 @@ func (s *Session) downloadClient(acc config.Account, kind, branch string) error 
 		if acc.IsFX() {
 			return errors.New("a VK Play account is required")
 		}
-		root, err := s.vkRoot()
-		if err != nil {
-			return err
-		}
-		if err := gamefiles.InstallVK(s.ui, root); err != nil {
-			return err
-		}
-		s.ui.Notify("VK Play is installed")
-		return nil
+		return s.downloadVK()
 	}
-	if !acc.IsFX() || !fxid.ValidBranchName(branch) {
-		return errors.New("an FX ID account and valid branch are required")
-	}
-	if (kind == gamefiles.KindFX) != strings.EqualFold(branch, gamefiles.DefaultBranch) || (kind != gamefiles.KindFX && kind != gamefiles.KindBranch) {
-		return errors.New("invalid client branch")
-	}
-	branches, err := fxBranches(s.client, acc)
-	if err != nil {
-		return err
-	}
-	available := false
-	for _, b := range branches {
-		if b.Err == nil && strings.EqualFold(b.Name, branch) {
-			branch, available = b.Name, true
-			break
-		}
-	}
-	if !available {
-		return fmt.Errorf("branch %s is not available to this account", branch)
-	}
-	cfg := s.cfg.Get()
-	if kind == gamefiles.KindFX {
-		root, err := s.fxRoot()
-		if err != nil {
-			return err
-		}
-		_, err = s.syncFX(acc, branch, root, "", true, cfg.AllowMods)
-		return err
-	}
-	if cfg.FXGame == "" && cfg.BranchGames[strings.ToLower(branch)] == "" {
-		if _, err := s.fxRoot(); err != nil {
-			return err
-		}
-		cfg = s.cfg.Get()
-	}
-	_, err = s.syncFX(acc, branch, cfg.BranchDir(branch), cfg.FXGame, true, cfg.AllowMods)
-	return err
+	return s.downloadFX(acc, kind, branch)
 }
+
+func (s *Session) UpdateClient(c gamefiles.Client) error {
+	if c.Kind == gamefiles.KindVK {
+		return s.updateVK(c.Dir)
+	}
+	acc, ok := s.fxAccountFor(c.Branch)
+	if !ok {
+		return errors.New("add an FX ID account first: updates come from FX ID")
+	}
+	return s.withLogin(acc, func(acc config.Account) error { return s.updateFX(acc, c) })
+}
+
+func (s *Session) VerifyClient(c gamefiles.Client) error {
+	if err := gamefiles.EnsureGameClosed(); err != nil {
+		return err
+	}
+	if c.Kind == gamefiles.KindVK {
+		return s.verifyVK(c.Dir)
+	}
+	return s.verifyFX(c)
+}
+
+func (s *Session) FindClient(kind, branch string) (gamefiles.Client, error) {
+	root := s.cfg.Get().Game
+	for _, c := range installedConfiguredClients(s.cfg.Get()) {
+		if c.Kind == kind && (kind != gamefiles.KindBranch || strings.EqualFold(c.Branch, branch)) {
+			return c, nil
+		}
+	}
+	return gamefiles.Client{}, fmt.Errorf("that client is not installed in %s", root)
+}
+
+func (s *Session) GameInfo() GameInfo { return describeConfiguredGame(s.cfg.Get()) }
+
 func describeGame(root string) GameInfo {
 	info := GameInfo{Dir: root, Clients: []gamefiles.Client{}}
 	if root == "" {
@@ -155,7 +148,6 @@ func describeGame(root string) GameInfo {
 	info.Free, _ = platform.DiskFree(root)
 	return info
 }
-func (s *Session) GameInfo() GameInfo { return describeConfiguredGame(s.cfg.Get()) }
 
 func describeConfiguredGame(cfg config.Config) GameInfo {
 	root := cfg.Game
@@ -183,6 +175,7 @@ func describeConfiguredGame(cfg config.Config) GameInfo {
 	}
 	return info
 }
+
 func configuredRoots(cfg config.Config) []string {
 	var roots []string
 	seen := map[string]bool{}
@@ -206,6 +199,7 @@ func configuredRoots(cfg config.Config) []string {
 	}
 	return roots
 }
+
 func installedConfiguredClients(cfg config.Config) []gamefiles.Client {
 	var clients []gamefiles.Client
 	for _, client := range gamefiles.InstalledClients(cfg.Game) {

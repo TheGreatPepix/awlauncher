@@ -3,10 +3,18 @@ package launcher
 import (
 	"errors"
 	"fmt"
+	"log"
+	"net/http"
+	"os"
+	"path/filepath"
 	"strings"
 
+	"github.com/TheGreatPepix/awlauncher/internal/fileutil"
 	"github.com/TheGreatPepix/awlauncher/internal/launcher/config"
+	"github.com/TheGreatPepix/awlauncher/internal/launcher/fxid"
 	"github.com/TheGreatPepix/awlauncher/internal/launcher/gamefiles"
+	"github.com/TheGreatPepix/awlauncher/internal/platform"
+	"github.com/TheGreatPepix/awlauncher/internal/progress"
 )
 
 func (s *Session) ChooseBranch(acc config.Account) error {
@@ -24,7 +32,7 @@ func (s *Session) ChooseBranch(acc config.Account) error {
 	})
 }
 
-func (s *Session) chooseBranch(acc config.Account, branches []fxBranchInfo) error {
+func (s *Session) chooseBranch(acc config.Account, branches []fxid.Branch) error {
 	current := acc.Branch
 	if current == "" {
 		current = gamefiles.DefaultBranch
@@ -32,7 +40,7 @@ func (s *Session) chooseBranch(acc config.Account, branches []fxBranchInfo) erro
 	var options []Choice
 	for _, b := range branches {
 		if b.Err == nil {
-			options = append(options, Choice{Value: b.Name, Label: b.Name, Detail: b.describe(), Current: strings.EqualFold(b.Name, current)})
+			options = append(options, Choice{Value: b.Name, Label: b.Name, Detail: describeBranch(b), Current: strings.EqualFold(b.Name, current)})
 		}
 	}
 	if len(options) == 0 {
@@ -87,4 +95,67 @@ func (s *Session) ActivateKey(acc config.Account) error {
 		logFXBranches(branches)
 		return s.chooseBranch(acc, branches)
 	})
+}
+
+func fxBranches(client *http.Client, acc config.Account) ([]fxid.Branch, error) {
+	token, err := fxid.SiteToken(client, acc.UserID, platform.Language())
+	if err != nil {
+		return nil, err
+	}
+	branches, err := fxid.Branches(client, token)
+	if err != nil {
+		return nil, err
+	}
+	for _, b := range branches {
+		if b.Err == nil {
+			saveBranchManifest(b.Name, b.Raw)
+		}
+	}
+	return branches, nil
+}
+
+func branchManifestDir() (string, error) {
+	dir, err := platform.DataDir()
+	if err != nil {
+		return "", err
+	}
+	return filepath.Join(dir, "branches"), nil
+}
+
+func saveBranchManifest(name string, raw []byte) {
+	if !fxid.ValidBranchName(name) {
+		return
+	}
+	dir, err := branchManifestDir()
+	if err != nil || os.MkdirAll(dir, 0700) != nil {
+		return
+	}
+	_ = fileutil.WriteAtomic(filepath.Join(dir, name+".json"), raw)
+}
+
+func logFXBranches(branches []fxid.Branch) {
+	saved := false
+	for _, b := range branches {
+		if b.Err != nil {
+			log.Printf("  %s  manifest: %v", b.Name, b.Err)
+			continue
+		}
+		saved = true
+		log.Printf("  %s  %s", b.Name, describeBranch(b))
+	}
+	if dir, err := branchManifestDir(); saved && err == nil {
+		log.Print("Branch manifests saved to ", dir)
+	}
+}
+
+func describeBranch(b fxid.Branch) string {
+	release := b.Manifest.Manifest.Release
+	line := fmt.Sprintf("%s (build %d)", release.BuildVersion, release.BuildNumber)
+	if !release.CreatedAt.IsZero() {
+		line += ", " + release.CreatedAt.Local().Format("02.01.2006")
+	}
+	if size := b.Manifest.FullSize(); size > 0 {
+		line += ", " + progress.FormatBytes(size)
+	}
+	return line
 }

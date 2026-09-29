@@ -13,6 +13,7 @@ import (
 
 	"github.com/TheGreatPepix/awlauncher/internal/launcher/config"
 	"github.com/TheGreatPepix/awlauncher/internal/launcher/fxid"
+	"github.com/TheGreatPepix/awlauncher/internal/launcher/tokens"
 )
 
 func fakeJWT(exp int64) string {
@@ -71,17 +72,17 @@ func TestFXLoginAndGameToken(t *testing.T) {
 	if fmt.Sprint(kinds) != fmt.Sprint([]PromptKind{PromptEmail, PromptCode, PromptCode, PromptCode}) {
 		t.Fatalf("prompts = %v", kinds)
 	}
-	token, err := fxGameToken(srv.Client(), acc)
+	token, err := fxid.GameToken(srv.Client(), acc.UserID, "en")
 	if err != nil || token != fakeJWT(exp) {
 		t.Fatalf("token %q, %v", token, err)
 	}
-	if saved, _ := config.LoadRefreshToken(acc.UserID); saved != "refresh-2" {
+	if saved, _ := tokens.Load(acc.UserID); saved != "refresh-2" {
 		t.Fatalf("saved refresh = %q", saved)
 	}
-	if _, err := fxGameToken(srv.Client(), acc); err != ErrNeedLogin {
+	if _, err := fxid.GameToken(srv.Client(), acc.UserID, "en"); err != ErrNeedLogin {
 		t.Fatalf("stale session: %v", err)
 	}
-	if _, err := config.LoadRefreshToken(acc.UserID); err == nil {
+	if _, err := tokens.Load(acc.UserID); err == nil {
 		t.Fatal("stale refresh token kept")
 	}
 }
@@ -117,14 +118,14 @@ func TestFXBranches(t *testing.T) {
 	fxid.Base = srv.URL
 	defer func() { fxid.Base = old }()
 	acc := config.Account{UserID: fxid.AccountID("a@b"), Provider: config.ProviderFX, Email: "a@b"}
-	if err := config.SaveRefreshToken(acc.UserID, "r"); err != nil {
+	if err := tokens.Save(acc.UserID, "r"); err != nil {
 		t.Fatal(err)
 	}
 	branches, err := fxBranches(srv.Client(), acc)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if len(branches) != 2 || branches[0].Version != "0.566.1" || branches[0].Build != 1001576 || branches[0].FullSize != 73336340642 {
+	if len(branches) != 2 || branches[0].Manifest.Version() != "0.566.1" || branches[0].Manifest.Manifest.Release.BuildNumber != 1001576 || branches[0].Manifest.FullSize() != 73336340642 {
 		t.Fatalf("branches = %+v", branches)
 	}
 	if !errors.Is(branches[1].Err, fxid.ErrNoAccess) {
@@ -159,7 +160,7 @@ func TestFXActivateKey(t *testing.T) {
 	fxid.Base = srv.URL
 	defer func() { fxid.Base = old }()
 	acc := config.Account{UserID: fxid.AccountID("a@b"), Provider: config.ProviderFX, Email: "a@b"}
-	if err := config.SaveRefreshToken(acc.UserID, "r"); err != nil {
+	if err := tokens.Save(acc.UserID, "r"); err != nil {
 		t.Fatal(err)
 	}
 	if branch, err := fxActivateKey(srv.Client(), acc, "GOOD-KEY"); err != nil || branch != "supertest" {

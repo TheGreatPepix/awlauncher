@@ -40,6 +40,7 @@ func (s *Session) ClearDownloads(roots ...string) error {
 	s.ui.Notify(fmt.Sprintf("Downloaded patches are deleted, %s freed", progress.FormatBytes(size)))
 	return nil
 }
+
 func (s *Session) RemoveBranch(c gamefiles.Client) error {
 	if c.Kind != gamefiles.KindBranch {
 		return errors.New("only a closed branch can be removed on its own")
@@ -56,6 +57,7 @@ func (s *Session) RemoveBranch(c gamefiles.Client) error {
 	s.ui.Sayf("FX ID %s is removed.", c.Branch)
 	return nil
 }
+
 func (s *Session) RemoveMainClient(c gamefiles.Client) error {
 	if c.Kind != gamefiles.KindVK && c.Kind != gamefiles.KindFX {
 		return errors.New("only a main client can be removed here")

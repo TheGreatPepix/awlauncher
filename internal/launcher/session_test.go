@@ -6,6 +6,7 @@ import (
 	"testing"
 
 	"github.com/TheGreatPepix/awlauncher/internal/launcher/config"
+	"github.com/TheGreatPepix/awlauncher/internal/launcher/fxid"
 	"github.com/TheGreatPepix/awlauncher/internal/launcher/gamefiles"
 )
 
@@ -41,7 +42,7 @@ func TestChooseBranchOffersTypedOptions(t *testing.T) {
 	acc := config.Account{UserID: -5, Provider: config.ProviderFX, Email: "a@b"}
 	ui := &fakeUI{answers: []string{"supertest"}}
 	s := NewSession(config.NewStore(config.Config{Accounts: []config.Account{acc}})).WithUI(ui)
-	branches := []fxBranchInfo{{Name: "default", Version: "0.566.1", Build: 7}, {Name: "supertest", Version: "0.567.0", Build: 8}, {Name: "closed", Err: errors.New("no access")}}
+	branches := []fxid.Branch{testBranch("default", "0.566.1", 7), testBranch("supertest", "0.567.0", 8), {Name: "closed", Err: errors.New("no access")}}
 	if err := s.chooseBranch(acc, branches); err != nil {
 		t.Fatal(err)
 	}
@@ -68,6 +69,13 @@ func TestChooseBranchOffersTypedOptions(t *testing.T) {
 	if a := stored(s, acc); a.Branch != "" {
 		t.Fatal("a cancelled choice changed the branch")
 	}
+}
+
+func testBranch(name, version string, build int64) fxid.Branch {
+	b := fxid.Branch{Name: name}
+	b.Manifest.Manifest.Release.BuildVersion = version
+	b.Manifest.Manifest.Release.BuildNumber = build
+	return b
 }
 
 func stored(s *Session, acc config.Account) config.Account {

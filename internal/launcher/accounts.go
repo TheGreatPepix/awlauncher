@@ -5,6 +5,8 @@ import (
 	"strings"
 
 	"github.com/TheGreatPepix/awlauncher/internal/launcher/config"
+	"github.com/TheGreatPepix/awlauncher/internal/launcher/tokens"
+	"github.com/TheGreatPepix/awlauncher/internal/launcher/vkplay"
 )
 
 func (s *Session) AddAccount(provider string) error {
@@ -31,9 +33,9 @@ func (s *Session) AddAccount(provider string) error {
 func (s *Session) RemoveAccount(acc config.Account) error {
 	var err error
 	if acc.IsFX() {
-		err = config.ClearRefreshToken(acc.UserID)
+		err = tokens.Clear(acc.UserID)
 	} else {
-		err = dropVKSession(s.client, acc.UserID)
+		err = vkplay.SignOut(s.client, acc.UserID)
 	}
 	if err != nil {
 		return err

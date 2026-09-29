@@ -74,6 +74,18 @@ func (s *Session) FolderPrompt(kind, branch string) Prompt {
 	return p
 }
 
+func (s *Session) askFolder(kind string) (string, bool) {
+	answer, ok := s.ui.Ask(s.FolderPrompt(kind, ""))
+	dir := strings.Trim(strings.TrimSpace(answer), `"'`)
+	if !ok || dir == "" {
+		return "", false
+	}
+	if abs, err := filepath.Abs(dir); err == nil {
+		dir = abs
+	}
+	return dir, true
+}
+
 func cleanFolder(dir string) (string, error) {
 	dir = strings.Trim(strings.TrimSpace(dir), `"'`)
 	if !DescribeFolder(dir).Valid {

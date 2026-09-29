@@ -1,14 +1,13 @@
 package launcher
 
 import (
-	"errors"
-
 	"github.com/TheGreatPepix/awlauncher/internal/launcher/gamefiles"
+	"github.com/TheGreatPepix/awlauncher/internal/launcher/tokens"
 )
 
 var (
 	ErrCancelled = gamefiles.ErrDeclined
-	ErrNeedLogin = errors.New("account session is no longer valid, sign in again")
+	ErrNeedLogin = tokens.ErrNeedLogin
 )
 
 type UI interface {

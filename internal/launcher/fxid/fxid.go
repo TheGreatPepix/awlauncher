@@ -255,6 +255,8 @@ type BranchManifest struct {
 	} `json:"Manifest"`
 }
 
+func (m BranchManifest) Version() string { return m.Manifest.Release.BuildVersion }
+
 func (m BranchManifest) FullSize() int64 {
 	var size int64
 	for _, a := range m.Manifest.Artifacts {
