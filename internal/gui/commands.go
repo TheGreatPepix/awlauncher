@@ -40,7 +40,7 @@ func (g *App) onMessage(message string) {
 	}
 	switch c.Cmd {
 	case "ready":
-		g.pageReady = true
+		g.pageReady.Store(true)
 		g.emitState(true)
 		g.resendPrompts()
 		if g.updated {

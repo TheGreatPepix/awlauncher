@@ -8,6 +8,7 @@ import (
 	"net/http/httptest"
 	"os"
 	"path/filepath"
+	"sync/atomic"
 	"testing"
 
 	"github.com/TheGreatPepix/awlauncher/internal/launcher/torrent"
@@ -15,7 +16,7 @@ import (
 
 func md5Hex(s string) string { sum := md5.Sum([]byte(s)); return hex.EncodeToString(sum[:]) }
 
-func fileServer(t *testing.T, files map[string]string, requests *int) *httptest.Server {
+func fileServer(t *testing.T, files map[string]string, requests *atomic.Int32) *httptest.Server {
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		data, ok := files[r.URL.Path]
 		if !ok {
@@ -24,7 +25,7 @@ func fileServer(t *testing.T, files map[string]string, requests *int) *httptest.
 			return
 		}
 		if requests != nil {
-			*requests++
+			requests.Add(1)
 		}
 		_, _ = w.Write([]byte(data))
 	}))
@@ -33,7 +34,7 @@ func fileServer(t *testing.T, files map[string]string, requests *int) *httptest.
 }
 
 func TestSyncFilesDownloadsOnlyMissingAndCorrupt(t *testing.T) {
-	requests := 0
+	var requests atomic.Int32
 	srv := fileServer(t, map[string]string{"/bad.dat": "good", "/missing.dat": "ok"}, &requests)
 	root := t.TempDir()
 	writeTree(t, root, map[string][]byte{"good.dat": []byte("good"), "bad.dat": []byte("evil")})
@@ -46,8 +47,8 @@ func TestSyncFilesDownloadsOnlyMissingAndCorrupt(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if len(fetched) != 2 || requests != 2 {
-		t.Fatalf("fetched %v with %d requests", fetched, requests)
+	if len(fetched) != 2 || requests.Load() != 2 {
+		t.Fatalf("fetched %v with %d requests", fetched, requests.Load())
 	}
 	for name, want := range map[string]string{"good.dat": "good", "bad.dat": "good", "missing.dat": "ok"} {
 		if got := readFile(t, filepath.Join(root, name)); got != want {

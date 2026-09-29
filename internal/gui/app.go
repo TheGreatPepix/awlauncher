@@ -43,7 +43,7 @@ type App struct {
 	logs    *logBuffer
 	gameUp  atomic.Bool
 
-	pageReady bool
+	pageReady atomic.Bool
 	updated   bool
 	checked   bool
 	signIn    *signIn
@@ -63,7 +63,7 @@ func (g *App) emit(event any) {
 		return
 	}
 	g.host.post(func() {
-		if g.pageReady {
+		if g.pageReady.Load() {
 			g.host.eval("window.aw && aw.recv(" + string(data) + ")")
 		}
 	})
@@ -122,7 +122,7 @@ func (g *App) play(acc config.Account) {
 }
 
 func (g *App) requestExit() {
-	if !g.pageReady || len(g.ops.List()) == 0 {
+	if !g.pageReady.Load() || len(g.ops.List()) == 0 {
 		g.host.exit()
 		return
 	}

@@ -182,7 +182,7 @@ func (h *winHost) wndProc(_ uintptr, msg uint32, wp, _ uintptr) (uintptr, bool) 
 		if !h.active {
 			h.leftAt = time.Now()
 		}
-		if h.active && h.web != nil && h.app.pageReady {
+		if h.active && h.web != nil && h.app.pageReady.Load() {
 			h.web.Focus()
 		}
 	case wmClose:

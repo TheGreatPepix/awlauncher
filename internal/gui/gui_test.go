@@ -117,7 +117,7 @@ func TestParseHexColor(t *testing.T) {
 
 func TestQuestionShowsOnlyItsOperationsOutput(t *testing.T) {
 	g, h := testApp(t)
-	g.pageReady = true
+	g.pageReady.Store(true)
 	install := g.opUI("Starting A")
 	branches := g.opUI("Loading branches of B")
 	branches.Say("Asking FX ID for branches of B...")
@@ -148,7 +148,7 @@ func TestQuestionShowsOnlyItsOperationsOutput(t *testing.T) {
 
 func TestConfirmAndFolderPromptsAreTyped(t *testing.T) {
 	g, h := testApp(t)
-	g.pageReady = true
+	g.pageReady.Store(true)
 	u := g.opUI("Downloading game")
 	yes := make(chan bool)
 	go func() { yes <- u.Yes("Install now?", true) }()
@@ -201,7 +201,7 @@ func TestPrefsKeepPalettes(t *testing.T) {
 
 func TestTrayExitAsksWhileAnOperationRuns(t *testing.T) {
 	g, h := testApp(t)
-	g.pageReady = true
+	g.pageReady.Store(true)
 	op := launcher.Operation{Title: "Downloading game", Game: true}
 	g.ops.Begin(&op)
 	g.requestExit()
