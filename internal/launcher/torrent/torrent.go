@@ -229,15 +229,32 @@ func Parse(data []byte) (Meta, error) {
 }
 
 func (t Meta) Download(client *http.Client, root string, jobs int) error {
-	missing := t.Missing(root)
 	total := t.payloadSize()
-	progress.Default.Begin("Downloading", progress.UnitBytes, total, total-missing)
-	err := t.fetchFiles(context.Background(), client, root, jobs, progress.Default)
-	progress.Default.End()
-	if err != nil {
-		return err
+	for attempt := 0; attempt < 2; attempt++ {
+		missing := t.Missing(root)
+		progress.Default.Begin("Downloading", progress.UnitBytes, total, total-missing)
+		err := t.fetchFiles(context.Background(), client, root, jobs, progress.Default)
+		progress.Default.End()
+		if err != nil {
+			return err
+		}
+		bad, err := t.badFiles(root)
+		if err != nil {
+			return err
+		}
+		if len(bad) == 0 {
+			return nil
+		}
+		if attempt == 1 {
+			return fmt.Errorf("torrent SHA1 mismatch in %s", bad[0])
+		}
+		for _, name := range bad {
+			if err := os.Remove(filepath.Join(root, filepath.FromSlash(name))); err != nil {
+				return err
+			}
+		}
 	}
-	return t.verifyPieces(root)
+	return nil
 }
 
 func (t Meta) Prefetch(ctx context.Context, client *http.Client, root string, jobs int, board *progress.Board) error {

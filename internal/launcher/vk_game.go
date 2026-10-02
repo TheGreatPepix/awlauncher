@@ -215,11 +215,28 @@ func (s *Session) updateVK(root string) error {
 	if err != nil {
 		return err
 	}
-	patches, latest, err := vkplay.LatestPatches(&http.Client{Timeout: 90 * time.Second}, g.Build)
+	client := &http.Client{Timeout: 90 * time.Second}
+	patches, latest, err := vkplay.LatestPatches(client, g.Build)
 	if err != nil {
 		return fmt.Errorf("update check: %w", err)
 	}
 	if len(patches) == 0 {
+		if latest == g.Build {
+			staged, found, err := gamefiles.FindStagedVKPatch(client, g.Build)
+			if err != nil {
+				return fmt.Errorf("check staged VK Play patch: %w", err)
+			}
+			if found {
+				if !s.ui.Yes(fmt.Sprintf("VK Play patch %d -> %d is available for preload. Download it now?", staged.Source, staged.Destination), false) {
+					return nil
+				}
+				if err := staged.Preload(root); err != nil {
+					return fmt.Errorf("preload VK Play patch: %w", err)
+				}
+				s.ui.Notify(fmt.Sprintf("VK Play patch %d is preloaded", staged.Destination))
+				return nil
+			}
+		}
 		s.ui.Notify(fmt.Sprintf("VK Play %s is up to date", gamefiles.VKLabel(gamefiles.VKVersion(g.Root), g.Build)))
 		return nil
 	}

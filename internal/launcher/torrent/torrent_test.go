@@ -11,6 +11,7 @@ import (
 	"path/filepath"
 	"reflect"
 	"strings"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -166,5 +167,41 @@ func TestPrefetchDownloadsQuietlyAndStopsOnCancel(t *testing.T) {
 	}
 	if elapsed := time.Since(start); elapsed > 2*time.Second {
 		t.Fatalf("cancelling took %s", elapsed)
+	}
+}
+
+func TestDownloadReplacesStalePreloadedFile(t *testing.T) {
+	const content = "the published patch payload"
+	var requests atomic.Int32
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		requests.Add(1)
+		if r.URL.Path != "/patch/payload.bin" {
+			http.NotFound(w, r)
+			return
+		}
+		http.ServeContent(w, r, "payload.bin", time.Time{}, strings.NewReader(content))
+	}))
+	defer srv.Close()
+	root := t.TempDir()
+	if err := os.WriteFile(filepath.Join(root, "payload.bin"), []byte(strings.Repeat("x", len(content))), 0644); err != nil {
+		t.Fatal(err)
+	}
+	sum := sha1.Sum([]byte(content))
+	meta := Meta{Name: "patch", Webseed: srv.URL + "/", PieceSize: 64, Hashes: sum[:], Files: []File{{Name: "payload.bin", Size: int64(len(content))}}}
+	if err := meta.Download(srv.Client(), root, 1); err != nil {
+		t.Fatal(err)
+	}
+	data, err := os.ReadFile(filepath.Join(root, "payload.bin"))
+	if err != nil || string(data) != content {
+		t.Fatalf("repaired file = %q, %v", data, err)
+	}
+	if requests.Load() != 1 {
+		t.Fatalf("download requests = %d, want 1", requests.Load())
+	}
+	if err := meta.Download(srv.Client(), root, 1); err != nil {
+		t.Fatal(err)
+	}
+	if requests.Load() != 1 {
+		t.Fatalf("cached file was downloaded again: %d requests", requests.Load())
 	}
 }

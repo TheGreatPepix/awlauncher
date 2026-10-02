@@ -35,6 +35,37 @@ func testTorrent(name string, files map[string]string, order []string) []byte {
 	return []byte(fmt.Sprintf("d4:info%s8:url-list%d:%se", info, len(seed), seed))
 }
 
+func TestFindStagedVKPatch(t *testing.T) {
+	files := map[string]string{"manifest.xml.gz": "manifest", "app.7z.001": "app", "patch.7z.001": "patch"}
+	valid := testTorrent("armoredwarfare_hddiff442-443", files, []string{"manifest.xml.gz", "app.7z.001", "patch.7z.001"})
+	incomplete := testTorrent("armoredwarfare_hddiff446-447", map[string]string{"manifest.xml.gz": "manifest"}, []string{"manifest.xml.gz"})
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch r.URL.Path {
+		case "/armoredwarfare_hddiff442-443.torrent", "/armoredwarfare_hddiff445-446.torrent":
+			w.Write(valid)
+		case "/armoredwarfare_hddiff446-447.torrent":
+			w.Write(incomplete)
+		default:
+			http.NotFound(w, r)
+		}
+	}))
+	defer srv.Close()
+
+	staged, found, err := findStagedVKPatch(srv.Client(), 442, srv.URL+"/")
+	if err != nil || !found || staged.Source != 442 || staged.Destination != 443 {
+		t.Fatalf("staged patch = %+v, found %v, error %v", staged, found, err)
+	}
+	if _, found, err := findStagedVKPatch(srv.Client(), 443, srv.URL+"/"); err != nil || found {
+		t.Fatalf("missing patch: found %v, error %v", found, err)
+	}
+	if _, _, err := findStagedVKPatch(srv.Client(), 445, srv.URL+"/"); err == nil {
+		t.Fatal("accepted a torrent for another build")
+	}
+	if _, _, err := findStagedVKPatch(srv.Client(), 446, srv.URL+"/"); err == nil {
+		t.Fatal("accepted a torrent without patch payload")
+	}
+}
+
 func TestPrefetchLoadsTheNextPatchAndStopsOnRequest(t *testing.T) {
 	files := map[string]string{"a.bin": "the next patch, first part", "b.bin": "and its second part"}
 	quick := testTorrent("quick", files, []string{"a.bin", "b.bin"})

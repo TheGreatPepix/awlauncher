@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"io"
 	"log"
 	"net/http"
 	"os"
@@ -100,6 +101,95 @@ func patchDir(cacheRoot string, p patchInfo) string {
 
 func patchClient() *http.Client {
 	return &http.Client{Timeout: 2 * time.Hour, Transport: download.Transport}
+}
+
+// StagedVKPatch is available on VK Play's download server before its build is
+// published in the signed update catalog.
+type StagedVKPatch struct {
+	Source, Destination int
+	meta                torrent.Meta
+}
+
+func FindStagedVKPatch(client *http.Client, build int) (StagedVKPatch, bool, error) {
+	return findStagedVKPatch(client, build, "http://static.dl.mail.ru/torrents/")
+}
+
+func findStagedVKPatch(client *http.Client, build int, baseURL string) (StagedVKPatch, bool, error) {
+	next := build + 1
+	name := fmt.Sprintf("armoredwarfare_hddiff%d-%d", build, next)
+	link := baseURL + name + ".torrent"
+	resp, err := client.Get(link)
+	if err != nil {
+		return StagedVKPatch{}, false, err
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode == http.StatusNotFound {
+		return StagedVKPatch{}, false, nil
+	}
+	if resp.StatusCode != http.StatusOK {
+		return StagedVKPatch{}, false, fmt.Errorf("staged VK Play torrent: %s", resp.Status)
+	}
+	data, err := io.ReadAll(io.LimitReader(resp.Body, 16<<20+1))
+	if err != nil {
+		return StagedVKPatch{}, false, err
+	}
+	if len(data) > 16<<20 {
+		return StagedVKPatch{}, false, errors.New("staged VK Play torrent is too large")
+	}
+	meta, err := torrent.Parse(data)
+	if err != nil {
+		return StagedVKPatch{}, false, fmt.Errorf("staged VK Play torrent: %w", err)
+	}
+	if meta.Name != name || !hasPatchPayload(meta) {
+		return StagedVKPatch{}, false, errors.New("staged VK Play torrent has unexpected files")
+	}
+	return StagedVKPatch{Source: build, Destination: next, meta: meta}, true, nil
+}
+
+// Preload downloads only into the patch cache. InstallPatches later fetches the
+// published catalog's signed metadata before applying any cached file.
+func (p StagedVKPatch) Preload(gameRoot string) error {
+	build, _, err := CurrentBuild(gameRoot)
+	if err != nil {
+		return err
+	}
+	if build != p.Source {
+		return errors.New("the installed VK Play build changed before preloading")
+	}
+	cacheRoot := CacheDir(gameRoot)
+	if err := os.MkdirAll(cacheRoot, 0755); err != nil {
+		return err
+	}
+	payload := patchDir(cacheRoot, patchInfo{Source: p.Source, Destination: p.Destination})
+	missing := p.meta.Missing(payload)
+	if missing > 0 {
+		if free, err := platform.DiskFree(cacheRoot); err != nil {
+			return err
+		} else if free < missing+prefetchReserve {
+			return fmt.Errorf("not enough free space to preload VK Play patch %d -> %d", p.Source, p.Destination)
+		}
+	}
+	log.Printf("Preloading VK Play patch %d -> %d (%s remaining).\n", p.Source, p.Destination, progress.FormatBytes(missing))
+	if err := p.meta.Download(patchClient(), payload, patchJobs); err != nil {
+		return err
+	}
+	log.Printf("VK Play patch %d -> %d is preloaded; installation waits for the official catalog.\n", p.Source, p.Destination)
+	return nil
+}
+
+func hasPatchPayload(meta torrent.Meta) bool {
+	need := map[string]bool{"manifest.xml.gz": false, "app.7z.001": false, "patch.7z.001": false}
+	for _, f := range meta.Files {
+		if _, ok := need[f.Name]; ok && !f.Padding && f.Size > 0 {
+			need[f.Name] = true
+		}
+	}
+	for _, ok := range need {
+		if !ok {
+			return false
+		}
+	}
+	return true
 }
 
 type prefetch struct {
