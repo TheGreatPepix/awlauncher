@@ -17,7 +17,7 @@ function avatar(a) {
   svg.setAttribute("viewBox", "0 0 44 44");
   const path = document.createElementNS("http://www.w3.org/2000/svg", "path");
   path.setAttribute("d", COOKIE);
-  path.setAttribute("fill", a.provider === "fxid" ? "var(--fx)" : "var(--vk)");
+  path.setAttribute("fill", a.provider === "fxid" || a.provider === "steam" ? "var(--fx)" : "var(--vk)");
   svg.append(path);
   const letter = (a.name.trim()[0] || "?").toUpperCase();
   return el("div", { class: "avatar" }, svg, el("div", { class: "avatar-letter", text: letter }));
@@ -40,7 +40,7 @@ function renderAccounts() {
       el("div", { class: "tile-text" },
         el("div", { class: "tile-name" }, a.last ? icon("pin") : null, el("span", { text: a.name })),
         el("div", { class: "tile-meta" },
-          el("span", { class: "tag " + a.provider, text: a.provider === "fxid" ? "FX ID" : "VK Play" }),
+          el("span", { class: "tag " + (a.provider === "steam" ? "fxid" : a.provider), text: a.provider === "steam" ? "Steam" : a.provider === "fxid" ? "FX ID" : "VK Play" }),
           a.branch ? el("span", { class: "tag branch", text: a.branch }) : null,
           a.language ? el("span", { class: "tag branch", title: t("Game language"), text: a.language }) : null,
           op ? el("span", { class: "tile-op", title: tb(op.title) }, el("i", { class: "pulse" }), tb(op.title)) : null,
@@ -97,8 +97,8 @@ function openMenu(anchor, a) {
   showMenu(anchor, [
     menuItem("play", t("Play"), () => { select(a.id); play(); }, null, !canPlay(a)),
     !a.last ? menuItem("pin", t("Make main"), () => { select(a.id); send({ cmd: "pin", account: a.id }); }) : null,
-    a.provider === "fxid" ? menuItem("branch", t("Client branches"), () => send({ cmd: "branches", account: a.id }), null, taken) : null,
-    a.provider === "fxid" ? menuItem("key", t("Activate key"), () => send({ cmd: "key", account: a.id }), null, taken) : null,
+    a.provider === "fxid" || a.provider === "steam" ? menuItem("branch", t("Client branches"), () => send({ cmd: "branches", account: a.id }), null, taken) : null,
+    a.provider === "fxid" || a.provider === "steam" ? menuItem("key", t("Activate key"), () => send({ cmd: "key", account: a.id }), null, taken) : null,
     menuItem("globe", t("Game language"), () => showGameLanguage(a)),
     menuItem("edit", t("Rename"), () => showRename(a)),
     el("hr"),
@@ -115,7 +115,8 @@ function showAddAccount() {
     body: [
       el("div", { class: "choices" },
         choice("vkplay", "VK Play"),
-        choice("fxid", "FX ID")),
+        choice("fxid", "FX ID"),
+        choice("steam", "Steam")),
     ],
     actions: [{ label: t("Cancel"), onClick: closeDialog }],
     onEscape: closeDialog,

@@ -55,7 +55,7 @@ func (s *Session) AvailableClients() AvailableClients {
 			}
 			continue
 		}
-		branches, err := fxBranches(s.client, acc)
+		branches, err := s.fxBranches(acc)
 		if err != nil {
 			out.Failed = true
 			continue

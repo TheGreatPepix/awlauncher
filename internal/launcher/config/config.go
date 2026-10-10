@@ -23,18 +23,23 @@ type Account struct {
 	Language string `json:"language,omitempty"`
 }
 
-func (a Account) IsFX() bool { return a.Provider == ProviderFX }
+func (a Account) IsSteam() bool { return a.Provider == ProviderSteam }
+
+func (a Account) IsFX() bool { return a.Provider == ProviderFX || a.Provider == ProviderSteam }
+
 func (a Account) Service() string {
-	if a.IsFX() && a.Branch != "" {
+	switch {
+	case a.IsSteam():
+		return "Steam"
+	case a.Provider == ProviderFX && a.Branch != "":
 		return "FX ID, " + a.Branch
-	}
-	if a.IsFX() {
+	case a.Provider == ProviderFX:
 		return "FX ID"
 	}
 	return "VK Play"
 }
 func (a Account) Login() string {
-	if a.IsFX() {
+	if a.Provider == ProviderFX {
 		return a.Email
 	}
 	return strconv.FormatInt(a.UserID, 10)
@@ -47,7 +52,7 @@ func (a Account) DisplayName() string {
 }
 func (a Account) Label() string {
 	id := strconv.FormatInt(a.UserID, 10)
-	if a.IsFX() {
+	if a.Provider == ProviderFX {
 		id = a.Email
 	}
 	if a.Name != "" && a.Name != id {
@@ -209,4 +214,7 @@ func (c Config) BranchDir(branch string) string {
 
 func DefaultFXDir() string { return platform.DefaultGameDir() + " FX ID" }
 
-const ProviderFX = "fxid"
+const (
+	ProviderFX    = "fxid"
+	ProviderSteam = "steam"
+)

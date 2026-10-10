@@ -61,10 +61,10 @@ func fxLaunchArgs(client *http.Client, acc config.Account, token string) []strin
 	return fxid.LaunchArgs(fxid.LaunchTemplate(client), fxLocale(acc), languageNames[gameLanguage(acc)], acc.Email, token)
 }
 
-func fxActivateKey(client *http.Client, acc config.Account, key string) (string, error) {
-	token, err := fxid.SiteToken(client, acc.UserID, fxLocale(acc))
+func (s *Session) fxActivateKey(acc config.Account, key string) (string, error) {
+	token, err := s.siteToken(acc)
 	if err != nil {
 		return "", err
 	}
-	return fxid.ActivateKey(client, token, key)
+	return fxid.ActivateKey(s.client, token, key)
 }

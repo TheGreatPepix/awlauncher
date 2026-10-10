@@ -46,7 +46,10 @@ func accountViews(cfg config.Config) []uiAccount {
 	views := make([]uiAccount, 0, len(cfg.Accounts))
 	for _, a := range cfg.Accounts {
 		provider := "vkplay"
-		if a.IsFX() {
+		switch {
+		case a.IsSteam():
+			provider = config.ProviderSteam
+		case a.IsFX():
 			provider = config.ProviderFX
 		}
 		views = append(views, uiAccount{

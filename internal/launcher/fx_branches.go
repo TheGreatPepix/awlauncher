@@ -4,7 +4,6 @@ import (
 	"errors"
 	"fmt"
 	"log"
-	"net/http"
 	"os"
 	"path/filepath"
 	"strings"
@@ -23,7 +22,7 @@ func (s *Session) ChooseBranch(acc config.Account) error {
 	}
 	return s.withLogin(acc, func(acc config.Account) error {
 		s.ui.Sayf("Asking FX ID for branches of %s...", acc.Label())
-		branches, err := fxBranches(s.client, acc)
+		branches, err := s.fxBranches(acc)
 		if err != nil {
 			return fmt.Errorf("could not list branches: %w", err)
 		}
@@ -83,12 +82,12 @@ func (s *Session) ActivateKey(acc config.Account) error {
 		return ErrCancelled
 	}
 	return s.withLogin(acc, func(acc config.Account) error {
-		branch, err := fxActivateKey(s.client, acc, key)
+		branch, err := s.fxActivateKey(acc, key)
 		if err != nil {
 			return fmt.Errorf("key not activated: %w", err)
 		}
 		s.ui.Sayf("Key activated: branch %q is now available to %s.", branch, acc.Label())
-		branches, err := fxBranches(s.client, acc)
+		branches, err := s.fxBranches(acc)
 		if err != nil {
 			return fmt.Errorf("could not list branches: %w", err)
 		}
@@ -97,12 +96,12 @@ func (s *Session) ActivateKey(acc config.Account) error {
 	})
 }
 
-func fxBranches(client *http.Client, acc config.Account) ([]fxid.Branch, error) {
-	token, err := fxid.SiteToken(client, acc.UserID, fxLocale(acc))
+func (s *Session) fxBranches(acc config.Account) ([]fxid.Branch, error) {
+	token, err := s.siteToken(acc)
 	if err != nil {
 		return nil, err
 	}
-	branches, err := fxid.Branches(client, token)
+	branches, err := fxid.Branches(s.client, token)
 	if err != nil {
 		return nil, err
 	}

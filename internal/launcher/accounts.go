@@ -6,6 +6,7 @@ import (
 
 	"github.com/TheGreatPepix/awlauncher/internal/launcher/config"
 	"github.com/TheGreatPepix/awlauncher/internal/launcher/fxid"
+	"github.com/TheGreatPepix/awlauncher/internal/launcher/tokens"
 	"github.com/TheGreatPepix/awlauncher/internal/launcher/vkplay"
 )
 
@@ -15,6 +16,8 @@ func (s *Session) AddAccount(provider string) error {
 	switch provider {
 	case config.ProviderFX:
 		added, err = s.loginFX("", "")
+	case config.ProviderSteam:
+		added, err = s.loginSteam(config.Account{})
 	case "vkplay":
 		added, err = s.loginVK("")
 	default:
@@ -32,9 +35,12 @@ func (s *Session) AddAccount(provider string) error {
 
 func (s *Session) RemoveAccount(acc config.Account) error {
 	var err error
-	if acc.IsFX() {
+	switch {
+	case acc.IsSteam():
+		err = tokens.Clear(acc.UserID)
+	case acc.IsFX():
 		err = fxid.SignOut(s.client, acc.UserID, fxLocale(acc))
-	} else {
+	default:
 		err = vkplay.SignOut(s.client, acc.UserID)
 	}
 	if err != nil {
@@ -47,9 +53,12 @@ func (s *Session) Relogin(acc config.Account) (config.Account, error) {
 	s.ui.Sayf("Session for %s has expired, sign in again.", acc.Label())
 	var relogged config.Account
 	var err error
-	if acc.IsFX() {
+	switch {
+	case acc.IsSteam():
+		relogged, err = s.loginSteam(acc)
+	case acc.IsFX():
 		relogged, err = s.loginFX(acc.Email, acc.Name)
-	} else {
+	default:
 		relogged, err = s.loginVK(acc.Name)
 	}
 	if err != nil {

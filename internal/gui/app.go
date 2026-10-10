@@ -143,6 +143,8 @@ func (g *App) addAccount(provider string) {
 	switch provider {
 	case config.ProviderFX:
 		title = "Signing in to FX ID"
+	case config.ProviderSteam:
+		title = "Signing in to Steam"
 	case "vkplay":
 	default:
 		return

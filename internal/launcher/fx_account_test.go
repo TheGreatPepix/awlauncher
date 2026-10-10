@@ -121,7 +121,8 @@ func TestFXBranches(t *testing.T) {
 	if err := tokens.Save(acc.UserID, "r"); err != nil {
 		t.Fatal(err)
 	}
-	branches, err := fxBranches(srv.Client(), acc)
+	s := &Session{ui: &fakeUI{}, cfg: config.NewStore(config.Config{}), client: srv.Client(), found: &foundGame{}}
+	branches, err := s.fxBranches(acc)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -205,10 +206,11 @@ func TestFXActivateKey(t *testing.T) {
 	if err := tokens.Save(acc.UserID, "r"); err != nil {
 		t.Fatal(err)
 	}
-	if branch, err := fxActivateKey(srv.Client(), acc, "GOOD-KEY"); err != nil || branch != "supertest" {
+	s := &Session{ui: &fakeUI{}, cfg: config.NewStore(config.Config{}), client: srv.Client(), found: &foundGame{}}
+	if branch, err := s.fxActivateKey(acc, "GOOD-KEY"); err != nil || branch != "supertest" {
 		t.Fatalf("good key: %q, %v", branch, err)
 	}
-	if _, err := fxActivateKey(srv.Client(), acc, "BAD"); err == nil || !strings.Contains(err.Error(), "Key not found") {
+	if _, err := s.fxActivateKey(acc, "BAD"); err == nil || !strings.Contains(err.Error(), "Key not found") {
 		t.Fatalf("bad key error = %v", err)
 	}
 }

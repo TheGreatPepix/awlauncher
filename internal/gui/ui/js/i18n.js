@@ -10,6 +10,7 @@ const RU = {
   "Close game": "Закрыть игру",
   "Signing in to VK Play": "Вход в VK Play",
   "Signing in to FX ID": "Вход в FX ID",
+  "Signing in to Steam": "Вход через Steam",
   "Open again": "Открыть снова",
   "Another account": "Другой аккаунт",
   "Sign in here": "Войти здесь",

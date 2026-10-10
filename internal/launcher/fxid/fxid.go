@@ -85,14 +85,33 @@ func (r AuthResponse) Failure() error {
 	return fmt.Errorf("FX ID: %s", name)
 }
 
+type SteamOpenIDAuthRequest struct {
+	AuthenticationType int    `json:"AuthenticationType"`
+	Game               string `json:"Game"`
+	Locale             string `json:"Locale"`
+	SteamOpenIdLogin   struct {
+		OriginURL string `json:"OriginUrl"`
+	} `json:"SteamOpenIdLogin"`
+}
+
+func AuthenticateSteamOpenID(client *http.Client, originURL, locale string) (AuthResponse, error) {
+	req := SteamOpenIDAuthRequest{AuthenticationType: 5, Game: Game, Locale: locale}
+	req.SteamOpenIdLogin.OriginURL = originURL
+	return postAuth(client, "/api/v1/auth/authenticate_to_fxid_adapter_for_external_id", req)
+}
+
 func Authenticate(client *http.Client, req AuthRequest) (AuthResponse, error) {
-	var resp AuthResponse
 	req.GameSystemName = Game
-	body, err := json.Marshal(req)
+	return postAuth(client, "/api/v1/auth/authenticate_with_external_id/"+Game, req)
+}
+
+func postAuth(client *http.Client, path string, body any) (AuthResponse, error) {
+	var resp AuthResponse
+	data, err := json.Marshal(body)
 	if err != nil {
 		return resp, err
 	}
-	httpReq, err := http.NewRequest(http.MethodPost, Base+"/api/v1/auth/authenticate_with_external_id/"+Game, bytes.NewReader(body))
+	httpReq, err := http.NewRequest(http.MethodPost, Base+path, bytes.NewReader(data))
 	if err != nil {
 		return resp, err
 	}
@@ -104,14 +123,14 @@ func Authenticate(client *http.Client, req AuthRequest) (AuthResponse, error) {
 		return resp, err
 	}
 	defer r.Body.Close()
-	data, err := io.ReadAll(io.LimitReader(r.Body, 1<<20))
+	answer, err := io.ReadAll(io.LimitReader(r.Body, 1<<20))
 	if err != nil {
 		return resp, err
 	}
 	if r.StatusCode != http.StatusOK {
 		return resp, &httpx.StatusError{Host: httpReq.URL.Host, Code: r.StatusCode}
 	}
-	if err := json.Unmarshal(data, &resp); err != nil {
+	if err := json.Unmarshal(answer, &resp); err != nil {
 		return resp, errors.New("unexpected FX ID response")
 	}
 	return resp, nil
@@ -294,6 +313,16 @@ func JWTExpiry(token string) (time.Time, bool) {
 		return time.Time{}, false
 	}
 	return time.Unix(claims.Exp, 0), true
+}
+
+func SteamID(token string) string {
+	var claims struct {
+		SocIDs map[string]string `json:"soc_ids"`
+	}
+	if !jwtClaims(token, &claims) {
+		return ""
+	}
+	return claims.SocIDs["steam"]
 }
 
 func GameEnv(gameToken string) []string {

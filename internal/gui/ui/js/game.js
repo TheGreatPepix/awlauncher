@@ -15,7 +15,7 @@ function clientRows(info) {
     if (c.account && !row.account) row.account = c.account;
   };
   const vk = state.accounts.find((a) => a.provider === "vkplay");
-  const fx = state.accounts.filter((a) => a.provider === "fxid");
+  const fx = state.accounts.filter((a) => a.provider === "fxid" || a.provider === "steam");
   if (vk) add({ kind: "vkplay", account: vk.id });
   if (fx.length) add({ kind: "fxid", account: fx[0].id });
   for (const a of fx) if (a.branch && a.branch.toLowerCase() !== "default") add({ kind: "branch", branch: a.branch, account: a.id });

@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"path/filepath"
+	"strconv"
 	"strings"
 
 	"github.com/TheGreatPepix/awlauncher/internal/launcher/config"
@@ -61,7 +62,7 @@ func (s *Session) launchFX(acc config.Account, branch, root, mainRoot string, as
 	if err != nil {
 		return err
 	}
-	launchToken, err := fxid.GameToken(s.client, acc.UserID, fxLocale(acc))
+	launchToken, err := s.gameToken(acc)
 	if err != nil {
 		return err
 	}
@@ -73,12 +74,19 @@ func (s *Session) launchFX(acc config.Account, branch, root, mainRoot string, as
 	if err != nil {
 		return err
 	}
-	pid, err := platform.StartGame(exe, fxLaunchArgs(s.client, acc, launchToken), root, fxid.GameEnv(launchToken))
+	pid, err := platform.StartGame(exe, fxLaunchArgs(s.client, acc, launchToken), root, fxGameEnv(acc, launchToken))
 	if err != nil {
 		return fmt.Errorf("start the game: %w", err)
 	}
 	s.ui.Sayf("Game started: %s, branch %s %s, PID %d", acc.Label(), branch, state.Version, pid)
 	return nil
+}
+
+func fxGameEnv(acc config.Account, token string) []string {
+	if acc.IsSteam() {
+		return []string{"GC_PERS_ID=" + strconv.FormatInt(acc.UserID, 10)}
+	}
+	return fxid.GameEnv(token)
 }
 
 func (s *Session) syncFX(acc config.Account, branch, root, mainRoot string, ask, allowMods bool) (gamefiles.BranchState, error) {
@@ -93,11 +101,11 @@ func (s *Session) syncFX(acc config.Account, branch, root, mainRoot string, ask,
 	} else if name != "" {
 		return gamefiles.BranchState{}, errors.New("the game is already running")
 	}
-	session, err := fxid.Session(s.client, acc.UserID, fxLocale(acc))
+	session, err := s.siteToken(acc)
 	if err != nil {
 		return gamefiles.BranchState{}, err
 	}
-	m, _, err := fxid.GetBranchManifest(s.client, session.AccessToken, branch)
+	m, _, err := fxid.GetBranchManifest(s.client, session, branch)
 	if err != nil {
 		return gamefiles.BranchState{}, fmt.Errorf("branch %s: %w", branch, err)
 	}
@@ -149,7 +157,7 @@ func (s *Session) downloadFX(acc config.Account, kind, branch string) error {
 	if (kind == gamefiles.KindFX) != strings.EqualFold(branch, gamefiles.DefaultBranch) || (kind != gamefiles.KindFX && kind != gamefiles.KindBranch) {
 		return errors.New("invalid client branch")
 	}
-	branches, err := fxBranches(s.client, acc)
+	branches, err := s.fxBranches(acc)
 	if err != nil {
 		return err
 	}
@@ -183,11 +191,11 @@ func (s *Session) downloadFX(acc config.Account, kind, branch string) error {
 }
 
 func (s *Session) updateFX(acc config.Account, c gamefiles.Client) error {
-	session, err := fxid.Session(s.client, acc.UserID, fxLocale(acc))
+	session, err := s.siteToken(acc)
 	if err != nil {
 		return err
 	}
-	m, _, err := fxid.GetBranchManifest(s.client, session.AccessToken, c.Branch)
+	m, _, err := fxid.GetBranchManifest(s.client, session, c.Branch)
 	if err != nil {
 		return fmt.Errorf("branch %s: %w", c.Branch, err)
 	}
