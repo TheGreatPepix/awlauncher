@@ -30,8 +30,13 @@ func Open(dir string) (*File, error) {
 	}
 	l := &File{dir: dir}
 	l.salvageCrash()
-	if err := l.rotate(); err != nil {
+	f, err := os.OpenFile(l.Path(), os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0644)
+	if err != nil {
 		return nil, err
+	}
+	l.f = f
+	if info, err := f.Stat(); err == nil {
+		l.size = info.Size()
 	}
 	return l, nil
 }
@@ -101,7 +106,7 @@ func (l *File) rotate() error {
 		return err
 	}
 	l.f, l.size = f, 0
-	if info, err := f.Stat(); err == nil && info.Size() < MaxSize {
+	if info, err := f.Stat(); err == nil {
 		l.size = info.Size()
 	}
 	return nil
