@@ -12,6 +12,7 @@ import (
 	"github.com/TheGreatPepix/awlauncher/internal/gui/startup"
 	"github.com/TheGreatPepix/awlauncher/internal/gui/ui"
 	"github.com/TheGreatPepix/awlauncher/internal/launcher/config"
+	"github.com/TheGreatPepix/awlauncher/internal/launcher/gamefiles"
 )
 
 const maxCommand = 16 << 20
@@ -152,5 +153,6 @@ func (h *coreHost) read(in io.Reader, g *App) {
 	if err := lines.Err(); err != nil {
 		log.Print("The window connection is broken: ", err)
 	}
+	gamefiles.WaitInstall()
 	h.post(h.exit)
 }

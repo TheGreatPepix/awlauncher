@@ -168,7 +168,10 @@ func (g *App) onMessage(message string) {
 		}
 		g.emitState(false)
 	case "exit":
-		g.host.post(g.host.exit)
+		go func() {
+			gamefiles.WaitInstall()
+			g.host.post(g.host.exit)
+		}()
 	case "requestExit":
 		g.host.post(g.requestExit)
 	case "playLast":
@@ -267,7 +270,8 @@ func (g *App) changeFolder(kind, branch string) {
 	if !ok {
 		return
 	}
-	if g.ops.GameBusy() {
+	op := launcher.Operation{Title: prompt.Question, Game: true}
+	if g.ops.Begin(&op) != "" {
 		g.notice(waitForGame)
 		return
 	}
@@ -281,6 +285,7 @@ func (g *App) changeFolder(kind, branch string) {
 	default:
 		err = s.SetBranchFolder(branch, dir)
 	}
+	g.ops.Finish(op.ID)
 	if err != nil {
 		g.notice(err.Error())
 		return

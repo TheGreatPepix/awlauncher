@@ -81,7 +81,7 @@ func (s *Session) RemoveMainClient(c gamefiles.Client) error {
 		return err
 	}
 	if c.Kind == gamefiles.KindVK {
-		s.found.game = nil
+		s.found.set(nil)
 	}
 	s.ui.Sayf("Removed %s.", c.Name())
 	return nil

@@ -27,23 +27,24 @@ func (s *Session) playVK(acc config.Account) error {
 }
 
 func (s *Session) vkGame() (gamefiles.Install, error) {
-	if s.found.game == nil {
-		g, err := s.chooseGameDir()
-		if err != nil {
+	if found := s.found.get(); found != nil {
+		return *found, nil
+	}
+	g, err := s.chooseGameDir()
+	if err != nil {
+		return gamefiles.Install{}, err
+	}
+	if s.cfg.Get().Game != g.Root {
+		if err := s.cfg.Update(func(c *config.Config) { c.Game = g.Root }); err != nil {
 			return gamefiles.Install{}, err
 		}
-		if s.cfg.Get().Game != g.Root {
-			if err := s.cfg.Update(func(c *config.Config) { c.Game = g.Root }); err != nil {
-				return gamefiles.Install{}, err
-			}
-		}
-		s.ui.Sayf("Game: %s (build %d)", g.Root, g.Build)
-		if !s.ensureUpdated(&g) {
-			return gamefiles.Install{}, ErrCancelled
-		}
-		s.found.game = &g
 	}
-	return *s.found.game, nil
+	s.ui.Sayf("Game: %s (build %d)", g.Root, g.Build)
+	if !s.ensureUpdated(&g) {
+		return gamefiles.Install{}, ErrCancelled
+	}
+	s.found.set(&g)
+	return g, nil
 }
 
 func (s *Session) chooseGameDir() (gamefiles.Install, error) {
@@ -127,6 +128,10 @@ func (s *Session) installInto(dir string) (gamefiles.Install, bool) {
 }
 
 func (s *Session) ensureUpdated(g *gamefiles.Install) bool {
+	if err := gamefiles.RecoverInstall(g.Root); err != nil {
+		s.ui.Say("Error:", err)
+		return false
+	}
 	s.ui.Say("Checking for updates...")
 	patches, latest, err := vkplay.LatestPatches(&http.Client{Timeout: 90 * time.Second}, g.Build)
 	if err != nil {
@@ -246,12 +251,15 @@ func (s *Session) updateVK(root string) error {
 	if err := gamefiles.InstallPatches(root, patches, !s.cfg.Get().NoBackups); err != nil {
 		return fmt.Errorf("update failed: %w", err)
 	}
-	s.found.game = nil
+	s.found.set(nil)
 	s.ui.Notify(fmt.Sprintf("VK Play is updated to %s", gamefiles.VKLabel(gamefiles.VKVersion(root), latest)))
 	return nil
 }
 
 func (s *Session) verifyVK(root string) error {
+	if err := gamefiles.RecoverInstall(root); err != nil {
+		return err
+	}
 	g, err := gamefiles.Open(root)
 	if err != nil {
 		return err
@@ -272,7 +280,7 @@ func (s *Session) verifyVK(root string) error {
 			return err
 		}
 	}
-	s.found.game = &g
+	s.found.set(&g)
 	if err := gamefiles.VerifyVKFiles(s.ui, g); err != nil {
 		return err
 	}
