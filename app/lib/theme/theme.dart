@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 
 import 'palette.dart';
 
-const fontFamily = 'Rubik';
+const fontFamily = 'Roboto Flex';
 
 ThemeData buildTheme(Palette palette, Brightness brightness) {
   final scheme = palette.scheme(brightness);
@@ -20,7 +20,7 @@ ThemeData buildTheme(Palette palette, Brightness brightness) {
   );
 }
 
-/// Rubik is a variable font: its weight is the wght axis, not a separate file.
+/// Roboto Flex is a variable font: its weight is the wght axis, not a separate file.
 TextTheme _variable(TextTheme theme) {
   TextStyle? weighted(TextStyle? s) {
     if (s == null) return null;
