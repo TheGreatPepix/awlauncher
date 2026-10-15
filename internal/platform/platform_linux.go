@@ -88,6 +88,25 @@ func DiskFree(dir string) (int64, error) {
 	return int64(st.Bavail) * int64(st.Bsize), nil
 }
 
+// MemoryAvailable returns the physical memory that is free for new allocations.
+func MemoryAvailable() int64 {
+	data, err := os.ReadFile("/proc/meminfo")
+	if err != nil {
+		return 0
+	}
+	for _, line := range strings.Split(string(data), "\n") {
+		fields := strings.Fields(line)
+		if len(fields) >= 2 && fields[0] == "MemAvailable:" {
+			kib, err := strconv.ParseInt(fields[1], 10, 64)
+			if err != nil {
+				return 0
+			}
+			return kib << 10
+		}
+	}
+	return 0
+}
+
 func FitCase(root, rel string) string {
 	full := filepath.Join(root, rel)
 	if _, err := os.Lstat(full); err == nil {

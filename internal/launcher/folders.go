@@ -111,7 +111,7 @@ func (s *Session) SetVKFolder(dir string) error {
 	if err := s.cfg.Update(func(c *config.Config) { c.Game = dir }); err != nil {
 		return err
 	}
-	s.found.game = nil
+	s.found.set(nil)
 	s.ui.Say("VK Play game folder:", dir)
 	return nil
 }

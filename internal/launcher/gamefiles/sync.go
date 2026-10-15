@@ -11,6 +11,7 @@ import (
 	"net/http"
 	"os"
 	"runtime"
+	"sort"
 	"strings"
 	"sync"
 	"time"
@@ -83,6 +84,7 @@ func syncFiles(root string, set fileSet, opt syncOptions) ([]remoteFile, error) 
 
 	if len(check) > 0 {
 		var mu sync.Mutex
+		largestFirst(check)
 		progress.Default.Begin("Checking", progress.UnitBytes, checkSize, 0)
 		err := workers.Each(check, checkJobs(root), func(f remoteFile) error {
 			dst, _ := SafePath(root, f.Path)
@@ -120,6 +122,7 @@ func syncFiles(root string, set fileSet, opt syncOptions) ([]remoteFile, error) 
 	if free, err := platform.DiskFree(root); err == nil && free < total+opt.Reserve {
 		return nil, fmt.Errorf("not enough free space: %s needed", progress.FormatBytes(total+opt.Reserve))
 	}
+	largestFirst(fetch)
 	jobs := opt.Jobs
 	if jobs < 1 {
 		jobs = 1
@@ -180,22 +183,21 @@ func fileMatches(path string, size int64, want string, newHash func() hash.Hash,
 	if track != nil {
 		w = io.MultiWriter(h, track)
 	}
-	buf := readBuffers.Get().(*[]byte)
-	defer readBuffers.Put(buf)
-	if _, err := io.CopyBuffer(w, progress.Default.Reader(f), *buf); err != nil {
+	if _, err := copyAhead(w, progress.Default.Reader(f)); err != nil {
 		return false, err
 	}
 	return strings.EqualFold(hex.EncodeToString(h.Sum(nil)), want), nil
 }
 
-var readBuffers = sync.Pool{New: func() any {
-	buf := make([]byte, 1<<20)
-	return &buf
-}}
-
 func checkJobs(root string) int {
 	if platform.SolidState(root) {
-		return min(max(runtime.NumCPU(), 2), 8)
+		return min(max(runtime.NumCPU(), 2), 16)
 	}
 	return 2
+}
+
+// largestFirst orders files so the biggest start first and no single large file
+// is left hashing alone at the end while the other workers sit idle.
+func largestFirst(files []remoteFile) {
+	sort.SliceStable(files, func(i, j int) bool { return files[i].Size > files[j].Size })
 }

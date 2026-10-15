@@ -4,6 +4,7 @@ import (
 	"errors"
 	"log"
 	"net/http"
+	"sync"
 	"time"
 
 	"github.com/TheGreatPepix/awlauncher/internal/launcher/config"
@@ -18,7 +19,24 @@ type Session struct {
 	found  *foundGame
 }
 
-type foundGame struct{ game *gamefiles.Install }
+// foundGame caches the VK Play install; operations and folder changes run on
+// different goroutines, so access goes through a lock.
+type foundGame struct {
+	mu   sync.Mutex
+	game *gamefiles.Install
+}
+
+func (f *foundGame) get() *gamefiles.Install {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	return f.game
+}
+
+func (f *foundGame) set(g *gamefiles.Install) {
+	f.mu.Lock()
+	f.game = g
+	f.mu.Unlock()
+}
 
 func NewSession(cfg *config.Store) *Session {
 	return &Session{cfg: cfg, client: authClient(), found: &foundGame{}}
