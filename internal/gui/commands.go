@@ -72,6 +72,10 @@ func (g *App) onMessage(message string) {
 	case "checkUpdate":
 		go func() { g.emit(update.Check(launcher.HTTPClient(), launcher.Version)) }()
 	case "applyUpdate":
+		if g.core {
+			g.notice("This build cannot update itself yet")
+			return
+		}
 		g.updateSelf()
 	case "theme":
 		caption, ok1 := parseHexColor(c.Caption)
@@ -168,6 +172,10 @@ func (g *App) onMessage(message string) {
 			gamefiles.WaitInstall()
 			g.host.post(g.host.exit)
 		}()
+	case "requestExit":
+		g.host.post(g.requestExit)
+	case "playLast":
+		g.host.post(g.playLast)
 	case "openDataFolder":
 		if dir, err := platform.DataDir(); err == nil {
 			g.host.open(dir)

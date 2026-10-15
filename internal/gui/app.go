@@ -20,7 +20,7 @@ const waitForGame = "Wait until the game operation finishes"
 
 type host interface {
 	post(f func())
-	eval(script string)
+	send(event []byte)
 	showWindow()
 	hideWindow()
 	windowShown() bool
@@ -45,6 +45,7 @@ type App struct {
 	gameUp  atomic.Bool
 
 	pageReady atomic.Bool
+	core      bool
 	updated   bool
 	checked   bool
 	signIn    *signIn
@@ -65,7 +66,7 @@ func (g *App) emit(event any) {
 	}
 	g.host.post(func() {
 		if g.pageReady.Load() {
-			g.host.eval("window.aw && aw.recv(" + string(data) + ")")
+			g.host.send(data)
 		}
 	})
 }
