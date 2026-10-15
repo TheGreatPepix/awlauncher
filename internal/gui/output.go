@@ -1,8 +1,18 @@
 package gui
 
 import (
+	"fmt"
+	"io"
+	"log"
+	"os"
+	"path/filepath"
+	"runtime/debug"
 	"strings"
 	"sync"
+
+	"github.com/TheGreatPepix/awlauncher/internal/launcher"
+	"github.com/TheGreatPepix/awlauncher/internal/logfile"
+	"github.com/TheGreatPepix/awlauncher/internal/platform"
 )
 
 const logLimit = 200_000
@@ -42,4 +52,24 @@ func (b *logBuffer) follow(onLine func(string)) {
 	b.mu.Lock()
 	b.onLine = onLine
 	b.mu.Unlock()
+}
+
+func startLog(logs *logBuffer) (stop func()) {
+	log.SetFlags(0)
+	log.SetOutput(logs)
+	dir, err := platform.DataDir()
+	if err != nil {
+		return func() {}
+	}
+	file, err := logfile.Open(filepath.Join(dir, "logs"))
+	if err != nil {
+		return func() {}
+	}
+	_ = file.CatchCrashes()
+	log.SetOutput(io.MultiWriter(logs, file))
+	file.Write([]byte(fmt.Sprintf("AWLauncher %s started (%s)", launcher.Version, strings.Join(os.Args[1:], " "))))
+	return func() {
+		_ = debug.SetCrashOutput(nil, debug.CrashOptions{})
+		file.Close()
+	}
 }
