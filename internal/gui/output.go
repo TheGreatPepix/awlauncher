@@ -6,6 +6,7 @@ import (
 	"log"
 	"os"
 	"path/filepath"
+	"runtime/debug"
 	"strings"
 	"sync"
 
@@ -67,5 +68,8 @@ func startLog(logs *logBuffer) (stop func()) {
 	_ = file.CatchCrashes()
 	log.SetOutput(io.MultiWriter(logs, file))
 	file.Write([]byte(fmt.Sprintf("AWLauncher %s started (%s)", launcher.Version, strings.Join(os.Args[1:], " "))))
-	return func() { file.Close() }
+	return func() {
+		_ = debug.SetCrashOutput(nil, debug.CrashOptions{})
+		file.Close()
+	}
 }

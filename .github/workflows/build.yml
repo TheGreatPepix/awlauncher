@@ -78,6 +78,7 @@ jobs:
     runs-on: windows-latest
     defaults:
       run:
+        shell: bash
         working-directory: app
     steps:
       - uses: actions/checkout@v5
