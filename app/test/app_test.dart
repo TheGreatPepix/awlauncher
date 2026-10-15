@@ -10,7 +10,18 @@ import 'package:flutter_test/flutter_test.dart';
 class _Desktop implements Desktop {
   final opened = <String>[];
   var shown = 0, hidden = 0, quits = 0;
-  String? trayPlay;
+  String? trayPlay, trayOpen;
+  bool? darkTitle;
+  late DesktopEvents events;
+
+  @override
+  void listen(DesktopEvents events) => this.events = events;
+
+  @override
+  void setTrayLabels({required String open, required String exit}) => trayOpen = open;
+
+  @override
+  void setTitleBar({required bool dark, required Color caption, required Color text}) => darkTitle = dark;
 
   @override
   void showWindow() => shown++;
@@ -105,6 +116,24 @@ void main() {
     await tester.pumpAndSettle();
     expect(desktop.quits, 1);
     expect(core.sent.last['cmd'], 'exit');
+  });
+
+  testWidgets('the tray plays, reports the window and exits', (tester) async {
+    final (core, desktop) = await _start(tester);
+    expect(desktop.trayOpen, 'Open AWLauncher');
+    expect(desktop.darkTitle, isFalse);
+    desktop.events.visible(false);
+    expect(core.sent.last, {'cmd': 'visible', 'ok': false});
+    desktop.events.play();
+    await tester.pumpAndSettle();
+    expect(core.sent.any((c) => c['cmd'] == 'playLast'), isTrue);
+    expect(find.text('Install now?'), findsOneWidget);
+    await tester.tap(find.text('No'));
+    await tester.pumpAndSettle();
+    desktop.events.exit();
+    await tester.pumpAndSettle();
+    expect(core.sent.last['cmd'], 'requestExit');
+    expect(desktop.quits, 1);
   });
 
   testWidgets('an FX ID sign-in asks for the e-mail and the code', (tester) async {

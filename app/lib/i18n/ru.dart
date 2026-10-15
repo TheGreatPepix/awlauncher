@@ -56,6 +56,7 @@ const _ru = <String, String>{
   'Exit AWLauncher': 'Выйти из AWLauncher',
   'Close the launcher completely': 'Полностью закрыть лаунчер',
   'Exit': 'Выйти',
+  'Open AWLauncher': 'Открыть AWLauncher',
   'Exit AWLauncher?': 'Выйти из AWLauncher?',
   '{ops} is still in progress. If you exit now, it is interrupted.':
       'Ещё не закончено: {ops}. Если выйти сейчас, это прервётся.',

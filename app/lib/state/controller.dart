@@ -21,6 +21,13 @@ bool isRelease(String v) => _release.hasMatch(v);
 class Controller extends ChangeNotifier {
   Controller(this.core, this.desktop) {
     _sub = core.events.listen(_receive);
+    desktop.listen(
+      DesktopEvents(
+        visible: (shown) => send({'cmd': 'visible', 'ok': shown}),
+        play: () => send({'cmd': 'playLast'}),
+        exit: _trayExit,
+      ),
+    );
   }
 
   final Core core;
@@ -103,6 +110,16 @@ class Controller extends ChangeNotifier {
   }
 
   void start() => send({'cmd': 'ready'});
+
+  /// Exit from the tray: the core asks first if something is running. With
+  /// the core gone there is nobody to ask.
+  void _trayExit() {
+    if (fatal != null) {
+      desktop.quit();
+    } else {
+      send({'cmd': 'requestExit'});
+    }
+  }
 
   void send(Map<String, Object?> command) => core.send(command);
 

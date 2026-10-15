@@ -164,6 +164,9 @@ class FakeCore implements Core {
             }
           },
         );
+      case 'playLast':
+        final last = accounts.where((a) => a['last'] == true).firstOrNull;
+        if (last != null) send({'cmd': 'play', 'account': last['id']});
       case 'pause':
         paused = true;
       case 'resume':

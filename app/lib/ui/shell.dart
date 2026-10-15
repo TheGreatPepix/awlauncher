@@ -166,12 +166,20 @@ class _ShellState extends State<Shell> {
     if (choice == 'update') c.applyUpdate();
   }
 
+  /// Keeps the title bar and the tray menu in the page's theme and language.
+  void _syncWindow(ColorScheme scheme) {
+    c.desktop
+      ..setTitleBar(dark: scheme.brightness == Brightness.dark, caption: scheme.surface, text: scheme.onSurface)
+      ..setTrayLabels(open: t('Open AWLauncher'), exit: t('Exit'));
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       body: ListenableBuilder(
         listenable: c,
         builder: (context, _) {
+          _syncWindow(Theme.of(context).colorScheme);
           if (c.fatal != null) return _Fatal(message: c.fatal!);
           if (!c.ready) return const Center(child: CircularProgressIndicator());
           final page = switch (c.page) {
