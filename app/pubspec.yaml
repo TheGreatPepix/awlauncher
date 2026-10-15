@@ -21,6 +21,6 @@ flutter:
   assets:
     - assets/images/logo.png
   fonts:
-    - family: Rubik
+    - family: Roboto Flex
       fonts:
-        - asset: assets/fonts/Rubik-Variable.ttf
+        - asset: assets/fonts/RobotoFlex-Variable.ttf
