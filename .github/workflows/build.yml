@@ -10,6 +10,9 @@ on:
 permissions:
   contents: read
 
+env:
+  FLUTTER_VERSION: 3.47.7
+
 defaults:
   run:
     shell: bash
@@ -69,6 +72,55 @@ jobs:
           path: dist/*.exe
           if-no-files-found: error
 
+  # The Flutter window with awcore beside it. It replaces the WebView build
+  # once the migration is done; until then it is built next to it.
+  window:
+    runs-on: windows-latest
+    defaults:
+      run:
+        working-directory: app
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-go@v6
+        with:
+          go-version-file: go.mod
+
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          flutter-version: ${{ env.FLUTTER_VERSION }}
+          cache: true
+
+      - name: Core
+        working-directory: .
+        run: |
+          version=$(git describe --tags --match 'v*' --always)
+          stamp="-X github.com/TheGreatPepix/awlauncher/internal/launcher.Version=$version"
+          go build -trimpath -ldflags "-s -w -H=windowsgui $stamp" -o dist-core/awcore.exe ./cmd/awcore
+
+      - name: Analyze
+        run: |
+          flutter pub get
+          flutter analyze
+
+      - name: Test
+        run: AWCORE="$GITHUB_WORKSPACE/dist-core/awcore.exe" flutter test
+
+      - name: Build
+        run: |
+          flutter build windows --release
+          cp ../dist-core/awcore.exe build/windows/x64/runner/Release/
+          ls -l build/windows/x64/runner/Release
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: AWLauncher-window-${{ github.sha }}
+          path: app/build/windows/x64/runner/Release/
+          if-no-files-found: error
+
   linux:
     runs-on: ubuntu-latest
     steps:
@@ -85,6 +137,20 @@ jobs:
 
       - name: Test
         run: go test -race ./...
+
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          flutter-version: ${{ env.FLUTTER_VERSION }}
+          cache: true
+
+      - name: Test the window
+        working-directory: app
+        run: |
+          go build -o "$RUNNER_TEMP/awcore" ../cmd/awcore
+          flutter pub get
+          flutter analyze
+          AWCORE="$RUNNER_TEMP/awcore" flutter test
 
   release:
     if: startsWith(github.ref, 'refs/tags/v')
