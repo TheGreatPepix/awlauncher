@@ -43,8 +43,33 @@ class Palette {
     return Color(Hct.from((hct.hue + 120) % 360, hct.chroma, hct.tone).toInt());
   }
 
-  ColorScheme scheme(Brightness brightness) =>
-      ColorScheme.fromSeed(seedColor: seed, brightness: brightness, dynamicSchemeVariant: style.variant);
+  ColorScheme scheme(Brightness brightness) {
+    final scheme = ColorScheme.fromSeed(seedColor: seed, brightness: brightness, dynamicSchemeVariant: style.variant);
+    if (style != PaletteStyle.expressive) return scheme;
+    // The turned source would also turn the surfaces; they keep the chosen
+    // hue, as they did on the WebView page.
+    final n = ColorScheme.fromSeed(
+      seedColor: oklch(0.6, 0.14, hue.toDouble()),
+      brightness: brightness,
+      dynamicSchemeVariant: style.variant,
+    );
+    return scheme.copyWith(
+      surface: n.surface,
+      surfaceDim: n.surfaceDim,
+      surfaceBright: n.surfaceBright,
+      surfaceContainerLowest: n.surfaceContainerLowest,
+      surfaceContainerLow: n.surfaceContainerLow,
+      surfaceContainer: n.surfaceContainer,
+      surfaceContainerHigh: n.surfaceContainerHigh,
+      surfaceContainerHighest: n.surfaceContainerHighest,
+      onSurface: n.onSurface,
+      onSurfaceVariant: n.onSurfaceVariant,
+      outline: n.outline,
+      outlineVariant: n.outlineVariant,
+      inverseSurface: n.inverseSurface,
+      onInverseSurface: n.onInverseSurface,
+    );
+  }
 
   @override
   bool operator ==(Object other) => other is Palette && other.hue == hue && other.style == style;
@@ -101,4 +126,51 @@ Color oklch(double l, double c, double hueDegrees) {
     green: gamma(-1.2684380046 * l1 + 2.6097574011 * m1 - 0.3413193965 * s1),
     blue: gamma(-0.0041960863 * l1 - 0.7034186147 * m1 + 1.7076147010 * s1),
   );
+}
+
+/// How strongly each style colors the brand logo, and how far it turns the
+/// hue: the WebView page's --pc and --h for the style.
+const _logoTint = <PaletteStyle, (double, int)>{
+  PaletteStyle.tonal: (1, 0),
+  PaletteStyle.vibrant: (1.45, 0),
+  PaletteStyle.expressive: (1.2, 0),
+  PaletteStyle.fruit: (1.25, -50),
+  PaletteStyle.neutral: (0.4, 0),
+  PaletteStyle.mono: (0, 0),
+};
+
+extension PaletteColors on Palette {
+  DynamicScheme _dynamic(bool dark) {
+    final source = Hct.fromInt(seed.toARGB32());
+    return switch (style) {
+      PaletteStyle.tonal => SchemeTonalSpot(sourceColorHct: source, isDark: dark, contrastLevel: 0),
+      PaletteStyle.vibrant => SchemeVibrant(sourceColorHct: source, isDark: dark, contrastLevel: 0),
+      PaletteStyle.expressive => SchemeExpressive(sourceColorHct: source, isDark: dark, contrastLevel: 0),
+      PaletteStyle.fruit => SchemeFruitSalad(sourceColorHct: source, isDark: dark, contrastLevel: 0),
+      PaletteStyle.neutral => SchemeNeutral(sourceColorHct: source, isDark: dark, contrastLevel: 0),
+      PaletteStyle.mono => SchemeMonochrome(sourceColorHct: source, isDark: dark, contrastLevel: 0),
+    };
+  }
+
+  /// The colors of a swatch: the quarters of its circle and the dot of the
+  /// chosen one, the same in light and dark themes.
+  ({Color primary, Color tertiary, Color secondary, Color dot}) get swatch {
+    final s = _dynamic(false);
+    Color tone(TonalPalette p, int t) => Color(p.get(t));
+    return (
+      primary: tone(s.primaryPalette, 55),
+      tertiary: tone(s.tertiaryPalette, 72),
+      secondary: tone(s.secondaryPalette, 82),
+      dot: tone(s.primaryPalette, 35),
+    );
+  }
+
+  /// The gradient and slats of the brand logo.
+  ({Color top, Color bottom, Color slats}) logo(bool dark) {
+    final (pc, shift) = _logoTint[style]!;
+    final h = (hue + shift - 8 + 360) % 360.0;
+    return dark
+        ? (top: oklch(0.55, 0.13 * pc, h), bottom: oklch(0.36, 0.13 * pc, h), slats: oklch(0.48, 0.12 * pc, h))
+        : (top: oklch(0.63, 0.11 * pc, h), bottom: oklch(0.39, 0.12 * pc, h), slats: oklch(0.48, 0.12 * pc, h));
+  }
 }

@@ -32,8 +32,8 @@ class _AwAppState extends State<AwApp> {
           title: 'AWLauncher',
           debugShowCheckedModeBanner: false,
           locale: Locale(c.lang),
-          theme: buildTheme(prefs.palette, Brightness.light),
-          darkTheme: buildTheme(prefs.palette, Brightness.dark),
+          theme: buildTheme(c.preview ?? prefs.palette, Brightness.light),
+          darkTheme: buildTheme(c.preview ?? prefs.palette, Brightness.dark),
           themeMode: switch (prefs.theme) {
             ThemeChoice.light => ThemeMode.light,
             ThemeChoice.dark => ThemeMode.dark,
