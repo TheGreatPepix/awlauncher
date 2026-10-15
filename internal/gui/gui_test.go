@@ -24,10 +24,9 @@ type fakeHost struct {
 
 func (h *fakeHost) post(f func()) { f() }
 
-func (h *fakeHost) eval(script string) {
-	data := strings.TrimSuffix(strings.TrimPrefix(script, "window.aw && aw.recv("), ")")
+func (h *fakeHost) send(data []byte) {
 	var event map[string]any
-	if json.Unmarshal([]byte(data), &event) == nil {
+	if json.Unmarshal(data, &event) == nil {
 		h.mu.Lock()
 		h.events = append(h.events, event)
 		h.mu.Unlock()
