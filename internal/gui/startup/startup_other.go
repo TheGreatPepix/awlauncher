@@ -15,4 +15,6 @@ func Set(mode string) error {
 
 func Refresh() {}
 
+func SetTarget(string) {}
+
 func TrayRequested([]string) bool { return false }
