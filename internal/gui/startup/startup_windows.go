@@ -86,7 +86,7 @@ func Set(mode string) error {
 	if mode != autostartWindow && mode != autostartTray {
 		return errors.New("unknown autostart mode " + mode)
 	}
-	exe, err := update.SelfPath()
+	exe, err := target()
 	if err != nil {
 		return err
 	}
@@ -103,7 +103,7 @@ func Set(mode string) error {
 
 func Refresh() {
 	v, ok := readRunValue()
-	exe, err := update.SelfPath()
+	exe, err := target()
 	if !ok || err != nil || strings.Contains(strings.ToLower(v), strings.ToLower(`"`+exe+`"`)) {
 		return
 	}
@@ -114,5 +114,10 @@ func Refresh() {
 	defer k.Close()
 	_ = k.SetStringValue(runValue, runCommand(exe, strings.Contains(strings.ToLower(v), trayFlag)))
 }
+
+var target = update.SelfPath
+
+// SetTarget makes exe the program that starts with Windows instead of this one.
+func SetTarget(exe string) { target = func() (string, error) { return exe, nil } }
 
 func TrayRequested(args []string) bool { return hasArg(args, trayFlag) }
