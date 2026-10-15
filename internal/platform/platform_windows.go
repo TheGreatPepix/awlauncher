@@ -25,6 +25,7 @@ var (
 	procGetUserDefaultLocaleName = kernel32.NewProc("GetUserDefaultLocaleName")
 	procGetDiskFreeSpaceExW      = kernel32.NewProc("GetDiskFreeSpaceExW")
 	procGetDriveTypeW            = kernel32.NewProc("GetDriveTypeW")
+	procGlobalMemoryStatusEx     = kernel32.NewProc("GlobalMemoryStatusEx")
 	procEnumWindows              = user32.NewProc("EnumWindows")
 	procGetWindowThreadProcessId = user32.NewProc("GetWindowThreadProcessId")
 	procPostMessageW             = user32.NewProc("PostMessageW")
@@ -142,6 +143,21 @@ func DiskFree(dir string) (int64, error) {
 		return 0, callErr
 	}
 	return int64(free), nil
+}
+
+// MemoryAvailable returns the physical memory that is free for new allocations.
+func MemoryAvailable() int64 {
+	var status struct {
+		Length, MemoryLoad                          uint32
+		TotalPhys, AvailPhys                        uint64
+		TotalPageFile, AvailPageFile                uint64
+		TotalVirtual, AvailVirtual, AvailExtVirtual uint64
+	}
+	status.Length = uint32(unsafe.Sizeof(status))
+	if ok, _, _ := procGlobalMemoryStatusEx.Call(uintptr(unsafe.Pointer(&status))); ok == 0 {
+		return 0
+	}
+	return int64(status.AvailPhys)
 }
 
 func processIDs(name string) ([]uint32, error) {

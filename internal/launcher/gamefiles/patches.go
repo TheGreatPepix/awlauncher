@@ -9,6 +9,7 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
+	"runtime"
 	"time"
 
 	"github.com/TheGreatPepix/awlauncher/internal/download"
@@ -19,12 +20,24 @@ import (
 
 const (
 	patchJobs       = 2
-	patchSourceMiB  = 768
 	prefetchReserve = 4 << 30
+	minBuildMemory  = 768 << 20
+	maxBuildMemory  = 16 << 30
 )
+
+// buildLimits picks how many deltas are decoded at once and how much memory
+// they may hold together: half of the memory that is free right now.
+func buildLimits() (int, int64) {
+	jobs := min(max(runtime.NumCPU()/2, 2), 8)
+	budget := min(max(platform.MemoryAvailable()/2, minBuildMemory), maxBuildMemory)
+	return jobs, budget
+}
 
 func InstallPatches(gameRoot string, patches []patchInfo, keepBackups bool) error {
 	if err := EnsureGameClosed(); err != nil {
+		return err
+	}
+	if err := RecoverInstall(gameRoot); err != nil {
 		return err
 	}
 	build, last, err := CurrentBuild(gameRoot)
@@ -51,6 +64,9 @@ func InstallPatches(gameRoot string, patches []patchInfo, keepBackups bool) erro
 			}
 		}
 		payload := patchDir(cacheRoot, p)
+		if err := ensureFree(cacheRoot, meta.Missing(payload)); err != nil {
+			return err
+		}
 		if err := meta.Download(patchClient(), payload, patchJobs); err != nil {
 			return err
 		}
@@ -65,8 +81,15 @@ func InstallPatches(gameRoot string, patches []patchInfo, keepBackups bool) erro
 		if err := os.MkdirAll(stage, 0755); err != nil {
 			return err
 		}
-		names, err := stagePatch(gameRoot, payload, stage, manifest, patchJobs, patchSourceMiB)
+		jobs, budget := buildLimits()
+		if err := ensureFree(cacheRoot, stageSize(stage, manifest)); err != nil {
+			return err
+		}
+		names, err := stagePatch(gameRoot, payload, stage, manifest, jobs, budget)
 		if err != nil {
+			return err
+		}
+		if err := EnsureGameClosed(); err != nil {
 			return err
 		}
 		log.Printf("Files built and verified: %d\n", len(names))
@@ -93,6 +116,31 @@ func InstallPatches(gameRoot string, patches []patchInfo, keepBackups bool) erro
 	}
 	CleanupCache(cacheRoot, build)
 	return nil
+}
+
+func ensureFree(dir string, need int64) error {
+	if need <= 0 {
+		return nil
+	}
+	free, err := platform.DiskFree(dir)
+	if err != nil || free >= need+gib {
+		return nil
+	}
+	return fmt.Errorf("not enough free space: %s needed", progress.FormatBytes(need+gib))
+}
+
+// stageSize is the space the files still missing from the stage folder need.
+func stageSize(stage string, manifest Manifest) int64 {
+	var need int64
+	for _, item := range append(append([]ManifestFile(nil), manifest.Files.Files...), manifest.PatchFiles.Files...) {
+		if out, err := SafePath(stage, item.Name); err == nil {
+			if st, err := os.Stat(out); err == nil && st.Size() == item.Size {
+				continue
+			}
+		}
+		need += item.Size
+	}
+	return need
 }
 
 func patchDir(cacheRoot string, p patchInfo) string {
