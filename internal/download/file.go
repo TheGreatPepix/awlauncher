@@ -61,6 +61,9 @@ func Fetch(ctx context.Context, r Request) ([]byte, error) {
 	if board == nil {
 		board = progress.Default
 	}
+	ctx, cancel := context.WithCancel(ctx)
+	defer cancel()
+	defer context.AfterFunc(board.Context(), cancel)()
 	task := board.Start(r.Label, r.Size)
 	defer task.Done()
 	partial := r.Dst + ".part"

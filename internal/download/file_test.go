@@ -13,6 +13,8 @@ import (
 	"strings"
 	"testing"
 	"time"
+
+	"github.com/TheGreatPepix/awlauncher/internal/progress"
 )
 
 func TestDownloadOneResumes(t *testing.T) {
@@ -129,5 +131,40 @@ func TestFetchStopsWhenCancelled(t *testing.T) {
 	}
 	if elapsed := time.Since(start); elapsed > 2*time.Second {
 		t.Fatalf("cancelling took %s", elapsed)
+	}
+}
+
+func TestFetchStopsWhenTheBoardIsCancelled(t *testing.T) {
+	started := make(chan struct{})
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Length", "1000")
+		fmt.Fprint(w, "0123456789")
+		w.(http.Flusher).Flush()
+		close(started)
+		<-r.Context().Done()
+	}))
+	defer srv.Close()
+	board := &progress.Board{}
+	board.Arm()
+	board.Begin("Downloading", progress.UnitBytes, 1000, 0)
+	defer board.End()
+	dst := filepath.Join(t.TempDir(), "file")
+	errs := make(chan error, 1)
+	go func() {
+		_, err := Fetch(context.Background(), Request{Client: srv.Client(), URL: srv.URL, Dst: dst, Label: "file", Size: 1000, Progress: board})
+		errs <- err
+	}()
+	<-started
+	board.Cancel()
+	select {
+	case err := <-errs:
+		if !errors.Is(err, context.Canceled) {
+			t.Fatalf("err = %v", err)
+		}
+	case <-time.After(5 * time.Second):
+		t.Fatal("the download went on after a cancel")
+	}
+	if _, err := os.Stat(dst); err == nil {
+		t.Fatal("a cancelled download was completed")
 	}
 }

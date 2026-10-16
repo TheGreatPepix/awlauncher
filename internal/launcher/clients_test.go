@@ -154,3 +154,31 @@ func readFile(t *testing.T, path string) string {
 	}
 	return string(data)
 }
+func TestDiscardDownloadForgetsTheFolderItChose(t *testing.T) {
+	parent := t.TempDir()
+	vk := filepath.Join(parent, "VK")
+	fx := filepath.Join(parent, "FX")
+	writeTree(t, vk, map[string][]byte{"-gup-/last.xml": []byte(`<Manifest Build="442"/>`)})
+	writeTree(t, fx, map[string][]byte{
+		"-gup-/awlauncher/pending.json": []byte(`["bin64/game.exe","data/a.pak"]`),
+		"bin64/game.exe":                []byte("exe"),
+		"data/a.pak.part":               []byte("pa"),
+	})
+	s := gameSession(t, vk, false)
+	before := s.cfg.Get()
+	if err := s.cfg.Update(func(c *config.Config) { c.FXGame = fx }); err != nil {
+		t.Fatal(err)
+	}
+	if err := s.DiscardDownload(gamefiles.KindFX, gamefiles.DefaultBranch, before); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := os.Stat(fx); err == nil {
+		t.Fatal("the cancelled client's folder is left")
+	}
+	if cfg := s.cfg.Get(); cfg.FXGame != "" || cfg.Game != vk {
+		t.Fatalf("folders after the cancel: VK %q, FX %q", cfg.Game, cfg.FXGame)
+	}
+	if !gamefiles.IsVKInstall(vk) {
+		t.Fatal("the other client was touched")
+	}
+}

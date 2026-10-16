@@ -78,6 +78,37 @@ void main() {
     expect(core.sent.where((c) => c['cmd'] == 'answer').single['value'], 'yes');
   });
 
+  testWidgets('a download is cancelled after a confirmation', (tester) async {
+    final (core, _) = await _start(tester);
+    core.send({'cmd': 'updateClient', 'value': 'vkplay'});
+    await tester.pump(const Duration(milliseconds: 50));
+    await tester.tap(find.byKey(const Key('cancelDownload')));
+    await tester.pump(const Duration(milliseconds: 50));
+    expect(find.text('Cancel the update?'), findsOneWidget);
+    await tester.tap(find.text('Keep updating'));
+    await tester.pump(const Duration(milliseconds: 50));
+    expect(core.sent.where((c) => c['cmd'] == 'cancel'), isEmpty);
+    await tester.tap(find.byKey(const Key('cancelDownload')));
+    await tester.pump(const Duration(milliseconds: 50));
+    await tester.tap(find.text('Stop, keep the client'));
+    await tester.pump(const Duration(milliseconds: 50));
+    expect(core.sent.last, {'cmd': 'cancel', 'value': 'keep'});
+    expect(find.text('Download stopped'), findsOneWidget);
+    expect(find.byKey(const Key('cancelDownload')), findsNothing);
+
+    core.send({'cmd': 'downloadClient', 'account': '1', 'value': 'vkplay'});
+    await tester.pump(const Duration(milliseconds: 50));
+    await tester.tap(find.byKey(const Key('cancelDownload')));
+    await tester.pump(const Duration(milliseconds: 50));
+    expect(find.text('Cancel the download?'), findsOneWidget);
+    expect(find.text('Stop, keep the client'), findsNothing);
+    await tester.tap(find.text('Cancel and delete'));
+    await tester.pump(const Duration(milliseconds: 50));
+    expect(core.sent.last, {'cmd': 'cancel', 'value': 'remove'});
+    expect(find.text('Download cancelled, the client is removed'), findsOneWidget);
+    await tester.pumpAndSettle();
+  });
+
   testWidgets('the pages switch and the language follows the setting', (tester) async {
     final (core, _) = await _start(tester);
     await tester.tap(find.text('Settings').first);
@@ -196,7 +227,14 @@ void main() {
     await tester.tap(find.text('Check files').first);
     expect(core.sent.last, {'cmd': 'verify', 'value': 'vkplay', 'branch': ''});
     await tester.tap(find.text('Download'));
-    expect(core.sent.last, {'cmd': 'downloadClient', 'account': '3', 'value': 'branch', 'branch': 'supertest'});
+    expect(core.sent.lastWhere((c) => c['cmd'] == 'downloadClient'), {
+      'cmd': 'downloadClient',
+      'account': '3',
+      'value': 'branch',
+      'branch': 'supertest',
+    });
+    core.send({'cmd': 'cancel', 'value': 'remove'});
+    await tester.pumpAndSettle();
   });
 
   testWidgets('the folder question checks the folder as it is typed', (tester) async {

@@ -21,6 +21,7 @@ void main() {
     expect(tb('Starting Tanker'), 'Запуск: Tanker');
     expect(tb('Update VK Play from build 442 to 443 (1 patches)?'), 'Обновить VK Play с билда 442 до 443 (патчей: 1)?');
     expect(tb('Remove VK Play and FX ID from D:\\Games?'), 'Удалить VK Play и FX ID из D:\\Games?');
+    expect(tb('Download cancelled, the client is removed'), 'Загрузка отменена, клиент удалён');
     expect(tb('Wait until “Checking VK Play” finishes'), 'Дождитесь окончания: «Проверка: VK Play»');
   });
 

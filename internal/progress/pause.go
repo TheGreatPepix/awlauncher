@@ -49,7 +49,12 @@ func (g *pauseGate) wait() {
 	}
 }
 
-func (b *Board) Pause() bool { return b.gate.pause() }
+func (b *Board) Pause() bool {
+	if b.Cancelled() {
+		return false
+	}
+	return b.gate.pause()
+}
 
 func (b *Board) Resume() bool { return b.gate.unpause() }
 
@@ -69,7 +74,7 @@ func (b *Board) Wait() {
 		b.parent.Wait()
 		return
 	}
-	if b.pausable.Load() {
+	if b.pausable.Load() && !b.Cancelled() {
 		b.gate.wait()
 	}
 }
@@ -85,5 +90,8 @@ type pausedReader struct {
 
 func (p pausedReader) Read(buf []byte) (int, error) {
 	p.b.Wait()
+	if err := p.b.Err(); err != nil {
+		return 0, err
+	}
 	return p.r.Read(buf)
 }

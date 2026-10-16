@@ -1,6 +1,7 @@
 package gamefiles
 
 import (
+	"encoding/json"
 	"errors"
 	"io/fs"
 	"os"
@@ -8,8 +9,40 @@ import (
 	"sort"
 	"strings"
 
+	"github.com/TheGreatPepix/awlauncher/internal/fileutil"
 	"github.com/TheGreatPepix/awlauncher/internal/platform"
 )
+
+func pendingPath(root string) string {
+	return filepath.Join(root, "-gup-", "awlauncher", "pending.json")
+}
+
+// markPending records the files an install is about to write, so an install
+// that is cancelled before it records the client can still be removed.
+func markPending(root string, files []remoteFile) error {
+	names := make([]string, 0, len(files))
+	for _, f := range files {
+		names = append(names, f.Path)
+	}
+	data, err := json.Marshal(names)
+	if err != nil {
+		return err
+	}
+	if err := os.MkdirAll(filepath.Dir(pendingPath(root)), 0755); err != nil {
+		return err
+	}
+	return fileutil.WriteAtomic(pendingPath(root), data)
+}
+
+func clearPending(root string) { _ = os.Remove(pendingPath(root)) }
+
+func readPending(root string) []string {
+	var names []string
+	if data, err := os.ReadFile(pendingPath(root)); err == nil {
+		_ = json.Unmarshal(data, &names)
+	}
+	return names
+}
 
 func removeEmptyDirs(root string) {
 	var dirs []string
@@ -61,7 +94,7 @@ func RemovableFolder(dir string) bool {
 }
 
 func RemoveClientFiles(dir string) error {
-	names := []string{"user.cfg"}
+	names := append([]string{"user.cfg"}, readPending(dir)...)
 	if IsVKInstall(dir) {
 		if build, _, err := CurrentBuild(dir); err == nil {
 			if inv, err := loadClientInventory(dir, build); err == nil {
@@ -81,8 +114,10 @@ func RemoveClientFiles(dir string) error {
 		if err != nil {
 			continue
 		}
-		if err := os.Remove(path); err != nil && !errors.Is(err, os.ErrNotExist) {
-			return err
+		for _, file := range []string{path, path + ".part"} {
+			if err := os.Remove(file); err != nil && !errors.Is(err, os.ErrNotExist) {
+				return err
+			}
 		}
 	}
 	if err := os.RemoveAll(filepath.Join(dir, "-gup-")); err != nil {

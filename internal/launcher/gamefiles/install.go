@@ -61,6 +61,9 @@ func InstallVK(p Asker, dir string) error {
 	if free, err := platform.DiskFree(root); err == nil {
 		p.Sayf("Free space: %.1f GiB; remaining download: %.1f GiB.\n", float64(free)/gib, float64(need)/gib)
 	}
+	if err := markPending(root, set.Files); err != nil {
+		return err
+	}
 	if _, err := syncFiles(root, set, syncOptions{Jobs: 4, Reserve: gib}); err != nil {
 		return err
 	}
@@ -84,6 +87,7 @@ func InstallVK(p Asker, dir string) error {
 	if err := writeInstalledLastXML(gup, d.info, d.manifest); err != nil {
 		return err
 	}
+	clearPending(root)
 	p.Sayf("Armored Warfare %d is installed in %s.\n", d.info.Destination, root)
 	offerRedist(p, root)
 	return nil
