@@ -165,7 +165,7 @@ func TestUmuGetsTheBestProton(t *testing.T) {
 	if r.argv[0] != "/usr/bin/python3" || !strings.HasSuffix(r.argv[1], "umu_run.py") {
 		t.Fatalf("argv = %q", r.argv)
 	}
-	if got := envValue(r.env, "GAMEID"); got != "umu-443110" {
+	if got := envValue(r.env, "GAMEID"); got != "umu-default" {
 		t.Fatalf("GAMEID = %q", got)
 	}
 	if got := envValue(r.env, "PROTONPATH"); filepath.Base(got) != "Proton 10.0" {

@@ -12,8 +12,9 @@ import (
 	"sync"
 )
 
-// steamAppID is Armored Warfare on Steam; umu-launcher keys its game fixes by it.
-const steamAppID = "443110"
+// umuGameID turns off umu-launcher's per-game fixes: the ones for the
+// Steam version of the game (umu-443110) do not suit this client.
+const umuGameID = "umu-default"
 
 var protonChoice struct {
 	sync.Mutex
@@ -303,7 +304,7 @@ func gameRunner(home, dir string, lookPath func(string) (string, error)) (runner
 		if err := linkPfx(prefix); err != nil {
 			return runner{}, err
 		}
-		env = setDefault(env, "GAMEID", "umu-"+steamAppID)
+		env = setDefault(env, "GAMEID", umuGameID)
 		env = setDefault(env, "STORE", "none")
 		name := "umu-launcher"
 		if proton != nil && os.Getenv("PROTONPATH") == "" {
