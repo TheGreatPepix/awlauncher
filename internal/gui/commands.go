@@ -22,9 +22,6 @@ type uiCommand struct {
 	Prompt   int         `json:"prompt"`
 	Value    string      `json:"value"`
 	OK       bool        `json:"ok"`
-	Dark     bool        `json:"dark"`
-	Caption  string      `json:"caption"`
-	Text     string      `json:"text"`
 	Theme    string      `json:"theme"`
 	Branch   string      `json:"branch"`
 	Hue      int         `json:"hue"`
@@ -51,7 +48,7 @@ func (g *App) onMessage(message string) {
 		if !g.checked && update.ReleaseBuild(launcher.Version) {
 			g.checked = true
 			go func() {
-				info := update.Check(launcher.HTTPClient(), launcher.Version, g.updateAsset())
+				info := update.Check(launcher.HTTPClient(), launcher.Version)
 				info.Quiet = true
 				g.emit(info)
 			}()
@@ -70,32 +67,18 @@ func (g *App) onMessage(message string) {
 		}
 		g.emitState(false)
 	case "checkUpdate":
-		go func() { g.emit(update.Check(launcher.HTTPClient(), launcher.Version, g.updateAsset())) }()
+		go func() { g.emit(update.Check(launcher.HTTPClient(), launcher.Version)) }()
 	case "applyUpdate":
 		g.updateSelf()
-	case "theme":
-		caption, ok1 := parseHexColor(c.Caption)
-		text, ok2 := parseHexColor(c.Text)
-		if ok1 && ok2 {
-			g.host.setTitleBar(c.Dark, caption, text)
-		}
 	case "prefs":
 		if err := savePrefs(uiPrefs{Theme: c.Theme, Hue: c.Hue, Style: c.Style, Palettes: c.Palettes, Lang: c.Lang}); err != nil {
 			log.Print("Cannot save the appearance settings: ", err)
 		}
 		if ui.SetLanguage(c.Lang) {
-			g.host.relabelTray()
 			g.updateTray()
 		}
 	case "answer":
 		g.answer(c.Prompt, c.Value, c.OK)
-	case "browse":
-		id, initial := c.Prompt, c.Value
-		g.host.post(func() {
-			if dir, err := g.host.pickFolder(initial); err == nil {
-				g.emit(map[string]any{"type": "browsed", "prompt": id, "path": dir})
-			}
-		})
 	case "folderInfo":
 		id, dir := c.Prompt, c.Value
 		go func() {
@@ -105,12 +88,6 @@ func (g *App) onMessage(message string) {
 				launcher.FolderInfo
 			}{"folderInfo", id, launcher.DescribeFolder(dir)})
 		}()
-	case "copyLogs":
-		err := g.host.copyText(c.Value)
-		if err != nil {
-			log.Print("Cannot copy logs: ", err)
-		}
-		g.emit(map[string]any{"type": "clipboard", "ok": err == nil})
 	case "gameInfo":
 		go g.emitGameInfo()
 	case "availableClients":
@@ -182,7 +159,7 @@ func (g *App) onMessage(message string) {
 		}
 	case "add":
 		g.addAccount(c.Provider)
-	case "signinOpen", "signinFresh", "signinHere", "signinCancel":
+	case "signinOpen", "signinFresh", "signinCancel":
 		cmd := c.Cmd
 		g.host.post(func() { g.signInCommand(cmd) })
 	case "closeGame":

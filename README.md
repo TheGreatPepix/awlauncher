@@ -19,7 +19,6 @@ A standalone launcher for Armored Warfare, for Windows. It installs, updates and
 ## Requirements
 
 - Windows 10 or 11, 64-bit. Earlier releases had a console version for Linux and Steam Deck; it is discontinued, and there is no Linux build for now.
-- Microsoft Edge WebView2 Runtime. It is part of Windows 11 and current Windows 10; if it is missing, the launcher offers the download page.
 - About 70 GiB of free space for a new install.
 
 ## Getting started
@@ -60,7 +59,7 @@ Everything lives in `%LOCALAPPDATA%\AWLauncher`:
 
 - `config.json`: the main game folder and the account list, without passwords or tokens;
 - `accounts\*.bin`: each account's saved sign-in, encrypted with Windows DPAPI so only your Windows user can read it;
-- `ui.json`: the theme, the color and the language; `WebView2`: the window's browser data.
+- `ui.json`: the theme, the color and the language. A `WebView2` folder is left from versions before 1.0 and can be deleted.
 
 Inside the game folder, the launcher keeps its own state and patch downloads in `-gup-`. Each service's own `user.cfg`, as it comes from that service's files, is kept in `-gup-\awlauncher` and put in place before the game starts; closed branches have their own folders with their own `user.cfg`. Removing an account deletes its saved sign-in; the game files stay.
 
@@ -82,24 +81,28 @@ If you represent one of these companies and have a concern, open an issue and it
 
 ## Building
 
-Go 1.26.6 or newer is needed only to build the launcher.
+The launcher is a Flutter window (`app`) with the Go core `awcore.exe` beside it; the window starts the core and talks to it in JSON lines. Building it needs Go 1.26.6 or newer and Flutter 3.47.7.
 
 ```powershell
-go build -ldflags '-H=windowsgui' -o AWLauncher.exe ./cmd/awlauncher
+go build -ldflags '-H=windowsgui' -o awcore.exe ./cmd/awcore
+cd app
+flutter build windows --release
+copy ..\awcore.exe build\windows\x64\runner\Release\
 ```
 
-Such a build calls itself a development build and does not update itself. To give it a version, add `-X github.com/TheGreatPepix/awlauncher/internal/launcher.Version=v1.2.3` to `-ldflags`; GitHub Actions does that with the output of `git describe --tags`.
+`flutter run -d windows` runs the window against the `awcore.exe` that `AWCORE` names; `--dart-define=AWLAUNCHER_DEMO=true` runs it on sample accounts without a core. Such a build calls itself a development build and does not update itself. To give it a version, add `-X github.com/TheGreatPepix/awlauncher/internal/launcher.Version=v1.2.3` to `-ldflags`; GitHub Actions does that with the output of `git describe --tags`.
 
 ```powershell
 go test ./...
+cd app; $env:AWCORE = "..\awcore.exe"; flutter test
 ```
 
 GitHub Actions builds and tests the launcher on every push and pull request, also runs the tests on Linux so the core stays portable, and builds the release files: the Flutter window with `awcore.exe` as a folder and as `AWLauncher-portable.zip`, the installer `AWLauncher-Setup.exe` from `installer/awlauncher.iss` with [Inno Setup 6](https://jrsoftware.org/isinfo.php), and `AWLauncher.exe` from `cmd/awbridge`, which carries the installer and moves AWLauncher 0.5 to this version. To build the installer yourself, put the folder from `flutter build windows` with `awcore.exe` into `dist\app` and run `ISCC.exe -DAppVersion=1.2.3 -DFileVersion=1.2.3.0 installer\awlauncher.iss`. Pushing a tag such as `v1.0.0`, or publishing a release for a new tag, attaches the three files to that release. The launcher compares its version with the latest release, so tags must look like `v1.2.3`; a tag with a suffix, such as `v1.2.3-rc1`, is never offered as an update.
 
-The window is a web page shown in WebView2; its files are in `internal/gui/ui` and are built into the executable. Opened in an ordinary browser, `index.html` runs a demo with sample accounts, which is handy for design work. Set `AWLAUNCHER_DEVTOOLS=1` to get the developer tools in the launcher window. The icon is the file `internal/gui/appicon/awlauncher.ico`; the window, its side bar and the tray use it as is, and nothing else draws the icon. To change it, replace that file (sizes from 16 to 256 px) and run `go generate ./cmd/...`, which also embeds it into the executables; run the same after changing the application manifest.
+The icon is in two files: `app/windows/runner/resources/app_icon.ico` for the window and the tray, and `installer/awlauncher.ico` for the installer and, through `go generate ./cmd/awbridge`, the bridge.
 
-The launcher uses [bodgit/sevenzip](https://github.com/bodgit/sevenzip), [go-deltasync/vcdiff](https://github.com/go-deltasync/vcdiff), [jchv/go-webview2](https://github.com/jchv/go-webview2) and [fyne.io/systray](https://github.com/fyne-io/systray). The interface font is Rubik, under the SIL Open Font License.
+The core uses [bodgit/sevenzip](https://github.com/bodgit/sevenzip) and [go-deltasync/vcdiff](https://github.com/go-deltasync/vcdiff); the window uses [Flutter](https://flutter.dev) and [file_selector](https://pub.dev/packages/file_selector). The interface font is Roboto Flex, under the SIL Open Font License.
 
 ## License
 
-AWLauncher is released under the [MIT License](LICENSE). The Rubik font keeps its own license, the SIL Open Font License, in `internal/gui/ui/fonts/Rubik-OFL.txt`.
+AWLauncher is released under the [MIT License](LICENSE). The Roboto Flex font keeps its own license, the SIL Open Font License, in `app/assets/fonts/RobotoFlex-OFL.txt`.

@@ -9,7 +9,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/TheGreatPepix/awlauncher/internal/gui/ui"
 	"github.com/TheGreatPepix/awlauncher/internal/launcher"
 	"github.com/TheGreatPepix/awlauncher/internal/launcher/config"
 	"github.com/TheGreatPepix/awlauncher/internal/launcher/gamefiles"
@@ -45,19 +44,12 @@ func (h *fakeHost) prompts() []map[string]any {
 	return out
 }
 
-func (h *fakeHost) showWindow()                                           { h.shown++ }
-func (h *fakeHost) hideWindow()                                           {}
-func (h *fakeHost) windowShown() bool                                     { return true }
-func (h *fakeHost) exit()                                                 { h.exited++ }
-func (h *fakeHost) setTitleBar(bool, [3]uint8, [3]uint8)                  {}
-func (h *fakeHost) pickFolder(string) (string, error)                     { return "", nil }
-func (h *fakeHost) copyText(string) error                                 { return nil }
-func (h *fakeHost) open(string)                                           {}
-func (h *fakeHost) setTrayPlay(string, bool)                              {}
-func (h *fakeHost) relabelTray()                                          {}
-func (h *fakeHost) openSignIn(string, func(string, string), func()) error { return nil }
-func (h *fakeHost) showSignIn()                                           {}
-func (h *fakeHost) closeSignIn()                                          {}
+func (h *fakeHost) showWindow()              { h.shown++ }
+func (h *fakeHost) hideWindow()              {}
+func (h *fakeHost) windowShown() bool        { return true }
+func (h *fakeHost) exit()                    { h.exited++ }
+func (h *fakeHost) open(string)              {}
+func (h *fakeHost) setTrayPlay(string, bool) {}
 
 func testApp(t *testing.T) (*App, *fakeHost) {
 	t.Helper()
@@ -83,36 +75,6 @@ func waitPrompt(t *testing.T, h *fakeHost, n int) map[string]any {
 	}
 	t.Fatal("no question")
 	return nil
-}
-
-func TestUIPageIsSelfContained(t *testing.T) {
-	page, err := ui.Page()
-	if err != nil {
-		t.Fatal(err)
-	}
-	if len(page) > 2_000_000 {
-		t.Fatalf("page is %d bytes", len(page))
-	}
-	for _, want := range []string{"<style>", "data:font/ttf;base64,", "window.aw = {", `id="page-home"`, `class="brand-logo-lid"`, "--spring:", "function setupPlayShapes"} {
-		if !strings.Contains(page, want) {
-			t.Errorf("page has no %q", want)
-		}
-	}
-	for _, unwanted := range []string{"const demo", "dev/demo.js", "<script src=", `rel="stylesheet"`} {
-		if strings.Contains(page, unwanted) {
-			t.Errorf("page still has %q", unwanted)
-		}
-	}
-}
-
-func TestParseHexColor(t *testing.T) {
-	c, ok := parseHexColor("#fdf7ff")
-	if !ok || c != [3]uint8{0xfd, 0xf7, 0xff} {
-		t.Fatalf("parseHexColor = %v %v", c, ok)
-	}
-	if _, ok := parseHexColor("oklch(0.5 0.1 300)"); ok {
-		t.Fatal("parsed a non-hex color")
-	}
 }
 
 func TestQuestionShowsOnlyItsOperationsOutput(t *testing.T) {

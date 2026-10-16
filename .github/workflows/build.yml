@@ -18,8 +18,7 @@ defaults:
     shell: bash
 
 jobs:
-  # The WebView launcher. Its code goes away once the Flutter launcher has
-  # replaced it; until then it is built and tested, but not released.
+  # The core's tests on Windows, where most of its system code lives.
   build:
     runs-on: windows-latest
     steps:
@@ -36,19 +35,6 @@ jobs:
 
       - name: Test
         run: go test ./...
-
-      - name: Build
-        run: |
-          version=$(git describe --tags --match 'v*' --always)
-          stamp="-X github.com/TheGreatPepix/awlauncher/internal/launcher.Version=$version"
-          go build -trimpath -ldflags "-s -w -H=windowsgui $stamp" -o dist-webview/AWLauncher.exe ./cmd/awlauncher
-          ls -l dist-webview
-
-      - uses: actions/upload-artifact@v4
-        with:
-          name: AWLauncher-webview-${{ github.sha }}
-          path: dist-webview/AWLauncher.exe
-          if-no-files-found: error
 
   # The Flutter launcher: the window with awcore beside it, as a folder, a
   # portable zip and an installer, and the bridge that moves 0.5 to it.
