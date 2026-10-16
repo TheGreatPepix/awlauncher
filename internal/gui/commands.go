@@ -51,7 +51,7 @@ func (g *App) onMessage(message string) {
 		if !g.checked && update.ReleaseBuild(launcher.Version) {
 			g.checked = true
 			go func() {
-				info := update.Check(launcher.HTTPClient(), launcher.Version)
+				info := update.Check(launcher.HTTPClient(), launcher.Version, g.updateAsset())
 				info.Quiet = true
 				g.emit(info)
 			}()
@@ -70,12 +70,8 @@ func (g *App) onMessage(message string) {
 		}
 		g.emitState(false)
 	case "checkUpdate":
-		go func() { g.emit(update.Check(launcher.HTTPClient(), launcher.Version)) }()
+		go func() { g.emit(update.Check(launcher.HTTPClient(), launcher.Version, g.updateAsset())) }()
 	case "applyUpdate":
-		if g.core {
-			g.notice("This build cannot update itself yet")
-			return
-		}
 		g.updateSelf()
 	case "theme":
 		caption, ok1 := parseHexColor(c.Caption)

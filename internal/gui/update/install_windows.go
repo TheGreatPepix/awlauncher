@@ -152,13 +152,22 @@ func StartUpdated(exe string, allowForeground func(int)) error {
 }
 
 func AfterUpdate(args []string) bool {
+	if !WaitForOld(args) {
+		return false
+	}
+	go removePreviousFiles()
+	return true
+}
+
+// WaitForOld waits until the launcher that started this one with
+// --updated <pid> has quit. It reports whether args came from an update.
+func WaitForOld(args []string) bool {
 	if len(args) < 3 || args[1] != updatedFlag {
 		return false
 	}
 	if pid, err := strconv.ParseUint(args[2], 10, 32); err == nil {
 		waitForPrevious(uint32(pid))
 	}
-	go removePreviousFiles()
 	return true
 }
 
@@ -233,4 +242,19 @@ func noteInstalledVersion(exe, tag string) {
 		return
 	}
 	_ = k.SetStringValue("DisplayVersion", strings.TrimPrefix(tag, "v"))
+}
+
+// InstallLocation is the folder the installer put AWLauncher in, or "" when
+// it was never installed.
+func InstallLocation() string {
+	k, err := registry.OpenKey(registry.CURRENT_USER, `Software\Microsoft\Windows\CurrentVersion\Uninstall\`+installAppID, registry.QUERY_VALUE)
+	if err != nil {
+		return ""
+	}
+	defer k.Close()
+	dir, _, err := k.GetStringValue("InstallLocation")
+	if err != nil {
+		return ""
+	}
+	return filepath.Clean(dir)
 }

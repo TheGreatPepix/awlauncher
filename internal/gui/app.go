@@ -10,6 +10,7 @@ import (
 	"sync/atomic"
 	"time"
 
+	"github.com/TheGreatPepix/awlauncher/internal/gui/update"
 	"github.com/TheGreatPepix/awlauncher/internal/launcher"
 	"github.com/TheGreatPepix/awlauncher/internal/launcher/config"
 	"github.com/TheGreatPepix/awlauncher/internal/platform"
@@ -46,6 +47,7 @@ type App struct {
 
 	pageReady atomic.Bool
 	core      bool
+	appExe    string // the window's executable, in core mode
 	updated   bool
 	checked   bool
 	signIn    *signIn
@@ -53,6 +55,14 @@ type App struct {
 	promptMu   sync.Mutex
 	prompts    map[int]*pendingPrompt
 	nextPrompt int
+}
+
+// updateAsset is the release file this build updates itself with.
+func (g *App) updateAsset() string {
+	if g.core {
+		return update.SetupAssetName
+	}
+	return update.SelfAssetName
 }
 
 func newApp(store *config.Store, logs *logBuffer, updated bool) *App {

@@ -24,10 +24,17 @@ class ProcessCore implements Core {
   var _closed = false;
 
   /// Starts the core at [exe]. [app] is the window's own executable, which
-  /// the core registers to start with Windows.
-  static Future<ProcessCore> start(String exe, {String? app, Map<String, String>? environment}) async {
+  /// the core registers to start with Windows and updates. [updated] says
+  /// the installer of a newer version started the window.
+  static Future<ProcessCore> start(
+    String exe, {
+    String? app,
+    bool updated = false,
+    Map<String, String>? environment,
+  }) async {
     final process = await Process.start(exe, [
       if (app != null) ...['--app', app],
+      if (updated) '--updated',
     ], environment: environment);
     return ProcessCore._(process);
   }

@@ -1,7 +1,7 @@
 name: awlauncher
 description: "The AWLauncher window: Material 3 on Flutter, over the awcore launcher core."
 publish_to: 'none'
-version: 0.1.0+1
+version: 1.0.0+1
 
 environment:
   sdk: ^3.13.5
