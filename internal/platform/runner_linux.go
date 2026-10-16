@@ -37,9 +37,10 @@ func chosenProton() string {
 func Protons() []Proton { return findProtons(HomeDir()) }
 
 type runner struct {
-	name string
-	argv []string
-	env  []string
+	name   string
+	argv   []string
+	env    []string
+	prefix string
 }
 
 func steamRoots(home string) []string {
@@ -271,7 +272,7 @@ func gameRunner(home, dir string, lookPath func(string) (string, error)) (runner
 		if err != nil {
 			return runner{}, err
 		}
-		return runner{name: filepath.Base(custom[0]), argv: custom, env: setDefault(os.Environ(), "WINEPREFIX", prefix)}, nil
+		return runner{name: filepath.Base(custom[0]), argv: custom, env: setDefault(os.Environ(), "WINEPREFIX", prefix), prefix: prefix}, nil
 	}
 	protons := findProtons(home)
 	var proton *Proton
@@ -304,7 +305,7 @@ func gameRunner(home, dir string, lookPath func(string) (string, error)) (runner
 			env = append(env, "PROTONPATH="+proton.Path)
 			name += " with " + proton.Name
 		}
-		return runner{name: name, argv: umu, env: env}, nil
+		return runner{name: name, argv: umu, env: env, prefix: prefix}, nil
 	}
 	if proton != nil {
 		if err := linkPfx(prefix); err != nil {
@@ -325,10 +326,10 @@ func gameRunner(home, dir string, lookPath func(string) (string, error)) (runner
 			argv = append([]string{entry, "--verb=waitforexitandrun", "--"}, argv...)
 			name += " in " + filepath.Base(filepath.Dir(entry))
 		}
-		return runner{name: name, argv: argv, env: env}, nil
+		return runner{name: name, argv: argv, env: env, prefix: prefix}, nil
 	}
 	if wine, err := lookPath("wine"); err == nil {
-		return runner{name: "Wine", argv: []string{wine}, env: env}, nil
+		return runner{name: "Wine", argv: []string{wine}, env: env, prefix: prefix}, nil
 	}
 	return runner{}, errors.New("nothing can run the Windows game here: install Proton in Steam (or GE-Proton), umu-launcher or Wine, or set AWLAUNCHER_RUNNER")
 }

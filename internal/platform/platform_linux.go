@@ -216,44 +216,64 @@ func runnerLog() (io.WriteCloser, string, error) {
 	return f, path, err
 }
 
-func runnerCommand(exe string, args []string, dir string, extra []string) (*exec.Cmd, string, string, error) {
+func runnerCommand(exe string, args []string, dir string, extra []string) (*exec.Cmd, runner, string, error) {
 	r, err := gameRunner(HomeDir(), dir, exec.LookPath)
 	if err != nil {
-		return nil, "", "", err
+		return nil, r, "", err
 	}
 	cmd := exec.Command(r.argv[0], append(append(r.argv[1:len(r.argv):len(r.argv)], exe), args...)...)
 	cmd.Dir, cmd.Env = dir, gameEnv(r.env, extra)
-	log, path, err := runnerLog()
+	out, path, err := runnerLog()
 	if err != nil {
-		return nil, "", "", err
+		return nil, r, "", err
 	}
-	cmd.Stdout, cmd.Stderr = log, log
-	return cmd, r.name, path, nil
+	cmd.Stdout, cmd.Stderr = out, out
+	return cmd, r, path, nil
 }
 
+// redistMark is left in a Wine prefix once Visual C++ is installed there.
+const redistMark = ".awlauncher-vcredist"
+
+// StartGame runs the game through Proton. A new prefix gets the Visual C++
+// Redistributable from the game folder first, since the game needs it.
 func StartGame(exe string, args []string, dir string, env []string) (int, error) {
-	cmd, runner, logPath, err := runnerCommand(exe, args, dir, env)
+	cmd, r, logPath, err := runnerCommand(exe, args, dir, env)
 	if err != nil {
 		return 0, err
+	}
+	if redist := filepath.Join(dir, "vc_redist.x64.exe"); isFile(redist) && !isFile(filepath.Join(r.prefix, redistMark)) {
+		cmd.Stdout.(io.Closer).Close()
+		log.Print("Installing Visual C++ Redistributable into the Wine prefix first; this takes a while")
+		if err := RunRedist(redist); err != nil {
+			log.Printf("Visual C++ Redistributable was not installed: %v\n", err)
+		}
+		if cmd, r, logPath, err = runnerCommand(exe, args, dir, env); err != nil {
+			return 0, err
+		}
 	}
 	err = cmd.Start()
 	cmd.Stdout.(io.Closer).Close()
 	if err != nil {
 		return 0, err
 	}
-	log.Printf("Started through %s; its output goes to %s\n", runner, logPath)
+	log.Printf("Started through %s; its output goes to %s\n", r.name, logPath)
 	go cmd.Wait()
 	return cmd.Process.Pid, nil
 }
 
 func RunRedist(path string) error {
-	cmd, runner, logPath, err := runnerCommand(path, []string{"/install", "/passive", "/norestart"}, filepath.Dir(path), nil)
+	cmd, r, logPath, err := runnerCommand(path, []string{"/install", "/passive", "/norestart"}, filepath.Dir(path), nil)
 	if err != nil {
 		return err
 	}
 	defer cmd.Stdout.(io.Closer).Close()
-	log.Printf("Installing through %s; the first run may take a while. Output: %s\n", runner, logPath)
-	return cmd.Run()
+	log.Printf("Installing through %s; the first run of a prefix may take a while. Output: %s\n", r.name, logPath)
+	err = cmd.Run()
+	var exit *exec.ExitError
+	if err == nil || errors.As(err, &exit) && (exit.ExitCode() == 1638 || exit.ExitCode() == 3010) {
+		os.WriteFile(filepath.Join(r.prefix, redistMark), nil, 0644)
+	}
+	return err
 }
 
 func SolidState(dir string) bool {
