@@ -19,7 +19,6 @@
 ## Требования
 
 - Windows 10 или 11, 64-бит. В прошлых релизах была консольная версия для Linux и Steam Deck; её больше нет, и сборки для Linux пока тоже нет.
-- Microsoft Edge WebView2 Runtime. Он входит в Windows 11 и актуальную Windows 10; если его нет, лаунчер предложит страницу загрузки.
 - Около 70 ГиБ свободного места для новой установки.
 
 ## Начало работы
@@ -62,7 +61,7 @@
 
 - `config.json`: основная папка игры и список аккаунтов, без паролей и токенов;
 - `accounts\*.bin`: сохранённый вход каждого аккаунта, зашифрованный Windows DPAPI, так что прочитать его может только ваш пользователь Windows;
-- `ui.json`: тема, цвет и язык; `WebView2`: данные браузера окна.
+- `ui.json`: тема, цвет и язык. Папка `WebView2` осталась от версий до 1.0, её можно удалить.
 
 В папке игры лаунчер хранит своё состояние и скачанные патчи в `-gup-`. Собственный `user.cfg` каждого сервиса, в том виде, в каком он приходит из файлов сервиса, хранится в `-gup-\awlauncher` и ставится на место перед запуском игры; у закрытых веток свои папки со своими `user.cfg`. При удалении аккаунта удаляется его сохранённый вход; файлы игры остаются.
 
@@ -84,24 +83,30 @@ AWLauncher — неофициальный фанатский проект. Ег�
 
 ## Сборка
 
-Go 1.26.6 или новее нужен только для сборки лаунчера.
+Лаунчер — это окно на Flutter (`app`) и ядро на Go `awcore.exe` рядом с ним; окно запускает ядро и общается с ним строками JSON. Для сборки нужны Go 1.26.6 или новее и Flutter 3.47.7.
 
 ```powershell
-go build -ldflags '-H=windowsgui' -o AWLauncher.exe ./cmd/awlauncher
+go build -ldflags '-H=windowsgui' -o awcore.exe ./cmd/awcore
+cd app
+flutter build windows --release
+copy ..\awcore.exe build\windows\x64\runner\Release\
 ```
+
+`flutter run -d windows` запускает окно с тем `awcore.exe`, который указан в `AWCORE`; с `--dart-define=AWLAUNCHER_DEMO=true` окно работает на примерах аккаунтов без ядра.
 
 Такая сборка считает себя сборкой для разработки и сама не обновляется. Чтобы задать ей версию, добавьте в `-ldflags` `-X github.com/TheGreatPepix/awlauncher/internal/launcher.Version=v1.2.3`; GitHub Actions делает это с выводом `git describe --tags`.
 
 ```powershell
 go test ./...
+cd app; $env:AWCORE = "..\awcore.exe"; flutter test
 ```
 
 GitHub Actions собирает и тестирует лаунчер при каждом push и pull request, дополнительно гоняет тесты на Linux, чтобы ядро оставалось переносимым, и собирает файлы релиза: окно на Flutter с `awcore.exe` папкой и архивом `AWLauncher-portable.zip`, установщик `AWLauncher-Setup.exe` из `installer/awlauncher.iss` с помощью [Inno Setup 6](https://jrsoftware.org/isinfo.php) и `AWLauncher.exe` из `cmd/awbridge`, который несёт в себе установщик и переводит AWLauncher 0.5 на эту версию. Чтобы собрать установщик самому, положите папку из `flutter build windows` вместе с `awcore.exe` в `dist\app` и выполните `ISCC.exe -DAppVersion=1.2.3 -DFileVersion=1.2.3.0 installer\awlauncher.iss`. Push тега вроде `v1.0.0` или публикация релиза для нового тега прикладывает три файла к этому релизу. Лаунчер сравнивает свою версию с последним релизом, поэтому теги должны выглядеть как `v1.2.3`; тег с суффиксом, например `v1.2.3-rc1`, никогда не предлагается как обновление.
 
-Окно — это веб-страница в WebView2; её файлы лежат в `internal/gui/ui` и встраиваются в exe. Если открыть `index.html` в обычном браузере, запустится демо с примерами аккаунтов — удобно для работы над дизайном. Задайте `AWLAUNCHER_DEVTOOLS=1`, чтобы получить инструменты разработчика в окне лаунчера. Значок — файл `internal/gui/appicon/awlauncher.ico`; окно, его боковая панель и трей используют его как есть, и больше нигде значок не рисуется. Чтобы сменить значок, замените этот файл (размеры от 16 до 256 px) и выполните `go generate ./cmd/...`, что заодно встроит его в exe; то же самое нужно после изменения манифеста приложения.
+Значок лежит в двух файлах: `app/windows/runner/resources/app_icon.ico` для окна и трея и `installer/awlauncher.ico` для установщика и, через `go generate ./cmd/awbridge`, для переходного exe.
 
-Лаунчер использует [bodgit/sevenzip](https://github.com/bodgit/sevenzip), [go-deltasync/vcdiff](https://github.com/go-deltasync/vcdiff), [jchv/go-webview2](https://github.com/jchv/go-webview2) и [fyne.io/systray](https://github.com/fyne-io/systray). Шрифт интерфейса — Rubik, под лицензией SIL Open Font License.
+Ядро использует [bodgit/sevenzip](https://github.com/bodgit/sevenzip) и [go-deltasync/vcdiff](https://github.com/go-deltasync/vcdiff); окно — [Flutter](https://flutter.dev) и [file_selector](https://pub.dev/packages/file_selector). Шрифт интерфейса — Roboto Flex, под лицензией SIL Open Font License.
 
 ## Лицензия
 
-AWLauncher распространяется по [лицензии MIT](LICENSE). У шрифта Rubik своя лицензия, SIL Open Font License, — она лежит в `internal/gui/ui/fonts/Rubik-OFL.txt`.
+AWLauncher распространяется по [лицензии MIT](LICENSE). У шрифта Roboto Flex своя лицензия, SIL Open Font License, — она лежит в `app/assets/fonts/RobotoFlex-OFL.txt`.

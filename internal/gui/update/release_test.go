@@ -47,25 +47,22 @@ func TestCheckForUpdate(t *testing.T) {
 		}
 		w.Write([]byte(`{"tag_name":"v0.2.0","html_url":"https://github.com/TheGreatPepix/awlauncher/releases/tag/v0.2.0",
 			"body":"Notes\r\n","published_at":"2026-09-27T10:00:00Z",
-			"assets":[{"name":"` + SelfAssetName + `","browser_download_url":"https://example.com/` + SelfAssetName + `","size":10}]}`))
+			"assets":[{"name":"` + SetupAssetName + `","browser_download_url":"https://example.com/` + SetupAssetName + `","size":10}]}`))
 	}))
 	defer srv.Close()
 	oldURL := latestReleaseURL
 	defer func() { latestReleaseURL = oldURL }()
 	latestReleaseURL = srv.URL
 
-	info := Check(srv.Client(), "v0.1.1", SelfAssetName)
+	info := Check(srv.Client(), "v0.1.1")
 	if info.Error != "" || !info.Available || !info.CanApply || info.Latest != "v0.2.0" || info.Notes != "Notes" || info.Published == "" {
 		t.Fatalf("v0.1.1: %+v", info)
 	}
-	if info := Check(srv.Client(), "v0.2.0", SelfAssetName); info.Available || info.CanApply || info.Error != "" {
+	if info := Check(srv.Client(), "v0.2.0"); info.Available || info.CanApply || info.Error != "" {
 		t.Fatalf("v0.2.0: %+v", info)
 	}
-	if info := Check(srv.Client(), "dev", SelfAssetName); info.Available || info.Latest != "v0.2.0" {
+	if info := Check(srv.Client(), "dev"); info.Available || info.Latest != "v0.2.0" {
 		t.Fatalf("dev: %+v", info)
-	}
-	if info := Check(srv.Client(), "v0.1.1", SetupAssetName); !info.Available || info.CanApply {
-		t.Fatalf("a release without the installer: %+v", info)
 	}
 }
 

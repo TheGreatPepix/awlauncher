@@ -4,8 +4,6 @@ import (
 	"encoding/json"
 	"os"
 	"path/filepath"
-	"strconv"
-	"strings"
 
 	"github.com/TheGreatPepix/awlauncher/internal/fileutil"
 	"github.com/TheGreatPepix/awlauncher/internal/platform"
@@ -55,16 +53,4 @@ func savePrefs(p uiPrefs) error {
 		return err
 	}
 	return fileutil.WriteAtomic(path, data)
-}
-
-func parseHexColor(s string) ([3]uint8, bool) {
-	s = strings.TrimPrefix(s, "#")
-	if len(s) != 6 {
-		return [3]uint8{}, false
-	}
-	v, err := strconv.ParseUint(s, 16, 32)
-	if err != nil {
-		return [3]uint8{}, false
-	}
-	return [3]uint8{uint8(v >> 16), uint8(v >> 8), uint8(v)}, true
 }
