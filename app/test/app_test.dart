@@ -3,6 +3,7 @@ import 'package:awlauncher/core/fake_core.dart';
 import 'package:awlauncher/i18n/strings.dart';
 import 'package:awlauncher/platform/desktop.dart';
 import 'package:awlauncher/state/controller.dart';
+import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -134,6 +135,36 @@ void main() {
     await tester.pumpAndSettle();
     expect(core.sent.last['cmd'], 'requestExit');
     expect(desktop.quits, 1);
+  });
+
+  testWidgets('ten clicks on the status open a ping-pong that plays', (tester) async {
+    await _start(tester);
+    for (var i = 0; i < 10; i++) {
+      await tester.tap(find.byKey(const Key('status')));
+      await tester.pump(const Duration(milliseconds: 50));
+    }
+    await tester.pump(const Duration(milliseconds: 600));
+    expect(find.text('Ping-pong'), findsOneWidget);
+    final field = find.byWidgetPredicate((w) => w is CustomPaint && '${w.painter.runtimeType}' == '_PongPainter');
+    dynamic painter() => tester.widget<CustomPaint>(field).painter;
+    // The ball waits 0.8 s after the serve, then moves.
+    await tester.pump(const Duration(milliseconds: 16));
+    final start = painter().x as double;
+    for (var i = 0; i < 60; i++) {
+      await tester.pump(const Duration(milliseconds: 16));
+    }
+    expect(painter().x, isNot(start));
+    // The paddle follows the mouse, even outside the field.
+    final mouse = await tester.createGesture(kind: PointerDeviceKind.mouse);
+    addTearDown(mouse.removePointer);
+    await mouse.addPointer(location: Offset(10, tester.getRect(field).top));
+    await tester.pump(const Duration(milliseconds: 16));
+    await mouse.moveTo(Offset(10, tester.getRect(field).bottom));
+    await tester.pump(const Duration(milliseconds: 16));
+    expect(painter().player, closeTo(300 - 64, 0.5));
+    await tester.tap(find.text('Close'));
+    await tester.pumpAndSettle();
+    expect(find.text('Ping-pong'), findsNothing);
   });
 
   testWidgets('an FX ID sign-in asks for the e-mail and the code', (tester) async {
