@@ -82,10 +82,10 @@ func clearRunnerEnv(t *testing.T) {
 	t.Cleanup(func() { SetProton("") })
 }
 
-func TestFindProtonsPrefersNewestGE(t *testing.T) {
+func TestFindProtonsPrefersValve(t *testing.T) {
 	home, _ := fakeDeck(t)
 	got := names(findProtons(home))
-	want := []string{"GE-Proton10-15", "GE-Proton9-27", "Proton 10.0", "Proton 9.0 (Beta)", "Proton - Experimental"}
+	want := []string{"Proton 10.0", "Proton 9.0 (Beta)", "GE-Proton10-15", "GE-Proton9-27", "Proton - Experimental"}
 	if !slices.Equal(got, want) {
 		t.Fatalf("findProtons = %q, want %q", got, want)
 	}
@@ -100,7 +100,7 @@ func TestProtonRunsInSteamRuntime(t *testing.T) {
 		t.Fatal(err)
 	}
 	entry := filepath.Join(card, "steamapps", "common", "SteamLinuxRuntime_sniper", "_v2-entry-point")
-	proton := filepath.Join(home, ".local", "share", "Steam", "compatibilitytools.d", "GE-Proton10-15")
+	proton := filepath.Join(card, "steamapps", "common", "Proton 10.0")
 	want := []string{entry, "--verb=waitforexitandrun", "--", filepath.Join(proton, "proton"), "waitforexitandrun"}
 	if !slices.Equal(r.argv, want) {
 		t.Fatalf("argv = %q, want %q", r.argv, want)
@@ -118,15 +118,18 @@ func TestProtonRunsInSteamRuntime(t *testing.T) {
 	if got := envValue(r.env, "STEAM_COMPAT_INSTALL_PATH"); got != game {
 		t.Fatalf("STEAM_COMPAT_INSTALL_PATH = %q", got)
 	}
-	if !strings.Contains(r.name, "GE-Proton10-15") {
+	if !strings.Contains(r.name, "Proton 10.0") {
 		t.Fatalf("name = %q", r.name)
+	}
+	if filepath.Base(prefix) != "Proton-10.0" || filepath.Base(filepath.Dir(prefix)) != "prefixes" {
+		t.Fatalf("each Proton build should get its own prefix, got %s", prefix)
 	}
 }
 
 func TestChosenProton(t *testing.T) {
 	clearRunnerEnv(t)
 	home, card := fakeDeck(t)
-	chosen := filepath.Join(card, "steamapps", "common", "Proton 10.0")
+	chosen := filepath.Join(home, ".local", "share", "Steam", "compatibilitytools.d", "GE-Proton9-27")
 	SetProton(chosen)
 	r, err := gameRunner(home, card, noCommands)
 	if err != nil {
@@ -135,8 +138,11 @@ func TestChosenProton(t *testing.T) {
 	if !slices.Contains(r.argv, filepath.Join(chosen, "proton")) {
 		t.Fatalf("argv = %q, want %s", r.argv, chosen)
 	}
+	if filepath.Base(envValue(r.env, "WINEPREFIX")) != "GE-Proton9-27" {
+		t.Fatalf("prefix = %q", envValue(r.env, "WINEPREFIX"))
+	}
 	SetProton(filepath.Join(card, "gone"))
-	if r, _ = gameRunner(home, card, noCommands); !strings.Contains(r.name, "GE-Proton10-15") {
+	if r, _ = gameRunner(home, card, noCommands); !strings.Contains(r.name, "Proton 10.0") {
 		t.Fatalf("a missing choice should fall back to the best build, got %q", r.name)
 	}
 }
@@ -161,7 +167,7 @@ func TestUmuGetsTheBestProton(t *testing.T) {
 	if got := envValue(r.env, "GAMEID"); got != "umu-443110" {
 		t.Fatalf("GAMEID = %q", got)
 	}
-	if got := envValue(r.env, "PROTONPATH"); filepath.Base(got) != "GE-Proton10-15" {
+	if got := envValue(r.env, "PROTONPATH"); filepath.Base(got) != "Proton 10.0" {
 		t.Fatalf("PROTONPATH = %q", got)
 	}
 }
@@ -185,5 +191,13 @@ func TestRunnerFallsBackToWine(t *testing.T) {
 	t.Setenv("AWLAUNCHER_RUNNER", "/opt/run --flag")
 	if r, _ = gameRunner(home, home, look); !slices.Equal(r.argv, []string{"/opt/run", "--flag"}) {
 		t.Fatalf("custom argv = %q", r.argv)
+	}
+}
+
+func TestUmuInLocalBin(t *testing.T) {
+	home := t.TempDir()
+	writeFile(t, filepath.Join(home, ".local", "bin", "umu-run"), "#!/bin/sh\n")
+	if got := findUmu(home, noCommands); len(got) != 1 || got[0] != filepath.Join(home, ".local", "bin", "umu-run") {
+		t.Fatalf("findUmu = %q", got)
 	}
 }

@@ -95,13 +95,15 @@ var digits = regexp.MustCompile(`\d+`)
 
 func newProtonBuild(name, dir string) protonBuild {
 	lower := strings.ToLower(name)
+	// Valve's numbered builds come first: with GE-Proton the game crashes
+	// when the garage loads.
 	rank := 2
 	switch {
 	case strings.Contains(lower, "experimental") || strings.Contains(lower, "hotfix"):
 		rank = 3
-	case strings.HasPrefix(lower, "ge-proton") || strings.HasPrefix(lower, "umu-proton") || strings.HasPrefix(lower, "proton-ge") || strings.HasSuffix(lower, "-ge") || strings.Contains(lower, "-ge-"):
-		rank = 0
 	case strings.HasPrefix(lower, "proton "):
+		rank = 0
+	case strings.HasPrefix(lower, "ge-proton") || strings.HasPrefix(lower, "umu-proton") || strings.HasPrefix(lower, "proton-ge") || strings.HasSuffix(lower, "-ge") || strings.Contains(lower, "-ge-"):
 		rank = 1
 	}
 	b := protonBuild{Proton: Proton{Name: name, Path: dir}, rank: rank}
@@ -195,6 +197,7 @@ func findUmu(home string, lookPath func(string) (string, error)) []string {
 		return []string{path}
 	}
 	for _, rel := range []string{
+		".local/bin/umu-run",
 		".local/share/lutris/runtime/umu/umu-run",
 		".var/app/net.lutris.Lutris/data/lutris/runtime/umu/umu-run",
 		".config/heroic/tools/runtimes/umu/umu_run.py",
@@ -216,7 +219,12 @@ func findUmu(home string, lookPath func(string) (string, error)) []string {
 	return nil
 }
 
-func gamePrefix() (string, error) {
+var unsafeName = regexp.MustCompile(`[^A-Za-z0-9._-]+`)
+
+// gamePrefix is WINEPREFIX, or a prefix of the launcher's own: one for each
+// Proton build, since a prefix that another Proton version has upgraded can
+// crash the game.
+func gamePrefix(proton *Proton) (string, error) {
 	if prefix := os.Getenv("WINEPREFIX"); prefix != "" {
 		return prefix, os.MkdirAll(prefix, 0755)
 	}
@@ -225,6 +233,9 @@ func gamePrefix() (string, error) {
 		return "", err
 	}
 	prefix := filepath.Join(dir, "prefix")
+	if proton != nil {
+		prefix = filepath.Join(dir, "prefixes", strings.Trim(unsafeName.ReplaceAllString(proton.Name, "-"), "-."))
+	}
 	return prefix, os.MkdirAll(prefix, 0755)
 }
 
@@ -255,13 +266,12 @@ func joinPaths(key string, paths ...string) string {
 // umu-launcher, Proton from Steam or Heroic (in its Steam Linux Runtime when
 // that is installed), then Wine.
 func gameRunner(home, dir string, lookPath func(string) (string, error)) (runner, error) {
-	prefix, err := gamePrefix()
-	if err != nil {
-		return runner{}, err
-	}
-	env := setDefault(os.Environ(), "WINEPREFIX", prefix)
 	if custom := strings.Fields(os.Getenv("AWLAUNCHER_RUNNER")); len(custom) > 0 {
-		return runner{name: filepath.Base(custom[0]), argv: custom, env: env}, nil
+		prefix, err := gamePrefix(nil)
+		if err != nil {
+			return runner{}, err
+		}
+		return runner{name: filepath.Base(custom[0]), argv: custom, env: setDefault(os.Environ(), "WINEPREFIX", prefix)}, nil
 	}
 	protons := findProtons(home)
 	var proton *Proton
@@ -273,7 +283,17 @@ func gameRunner(home, dir string, lookPath func(string) (string, error)) (runner
 	if proton == nil && len(protons) > 0 {
 		proton = &protons[0]
 	}
-	if umu := findUmu(home, lookPath); umu != nil {
+	umu := findUmu(home, lookPath)
+	used := proton
+	if umu != nil && os.Getenv("PROTONPATH") != "" {
+		used = nil
+	}
+	prefix, err := gamePrefix(used)
+	if err != nil {
+		return runner{}, err
+	}
+	env := setDefault(os.Environ(), "WINEPREFIX", prefix)
+	if umu != nil {
 		if err := linkPfx(prefix); err != nil {
 			return runner{}, err
 		}
