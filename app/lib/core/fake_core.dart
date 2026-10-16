@@ -164,6 +164,9 @@ class FakeCore implements Core {
             }
           },
         );
+      case 'playLast':
+        final last = accounts.where((a) => a['last'] == true).firstOrNull;
+        if (last != null) send({'cmd': 'play', 'account': last['id']});
       case 'pause':
         paused = true;
       case 'resume':
@@ -226,18 +229,79 @@ class FakeCore implements Core {
           'downloads': 1288490188,
           'free': 182536110080,
           'clients': [
-            {'kind': 'vk', 'dir': r'H:\Games\Armored Warfare', 'version': 'build 442'},
-            {'kind': 'fx', 'dir': r'H:\Games\Armored Warfare FX', 'version': '0.566.1'},
+            {'kind': 'vkplay', 'dir': r'H:\Games\Armored Warfare', 'version': 'build 442', 'downloads': 1288490188},
+            {'kind': 'fxid', 'dir': r'H:\Games\Armored Warfare FX', 'version': '0.566.1'},
           ],
+          'branchPaths': {'supertest': r'H:\Games\Armored Warfare FX supertest'},
         });
       case 'availableClients':
         _emit({
           'type': 'availableClients',
           'clients': [
-            {'kind': 'vk', 'account': '1'},
-            {'kind': 'fx', 'account': '2', 'version': '0.566.1'},
+            {'kind': 'vkplay', 'account': '1'},
+            {'kind': 'fxid', 'account': '2', 'version': '0.566.1'},
             {'kind': 'branch', 'branch': 'supertest', 'account': '3', 'version': '0.567.0'},
           ],
+        });
+      case 'language':
+        final a = _account(c['account']);
+        if (a == null) return;
+        if ('${c['value']}'.isEmpty) {
+          a.remove('language');
+        } else {
+          a['language'] = c['value'];
+        }
+        _emit(_state());
+      case 'branches':
+        final a = _account(c['account']);
+        if (a == null) return;
+        _begin({'id': 5, 'title': 'Choosing a branch', 'account': a['id']});
+        _ask(
+          'Choosing a branch',
+          'choice',
+          'Which client branch should ${a['name']} play?',
+          options: [
+            {'value': 'default', 'label': 'default', 'detail': 'The live servers', 'current': a['branch'] == null},
+            {'value': 'supertest', 'label': 'supertest', 'detail': 'Test servers', 'current': a['branch'] == 'supertest'},
+          ],
+          (value, ok) {
+            if (ok) {
+              value == 'default' ? a.remove('branch') : a['branch'] = value;
+            }
+            _end(5);
+          },
+        );
+      case 'key':
+        _begin({'id': 6, 'title': 'Activating a key', 'account': c['account']});
+        _ask('Activating a key', 'key', 'Key to activate', (value, ok) {
+          _end(6);
+          _emit({'type': 'done', 'status': ok ? 'ok' : 'cancelled', 'title': 'Activating a key', 'message': 'Key activated'});
+        });
+      case 'gameFolder' || 'fxFolder' || 'branchFolder':
+        _begin({'id': 7, 'title': 'Choosing the game folder', 'game': true});
+        _waiting[_nextPrompt] = (value, ok) => _end(7);
+        _emit({
+          'type': 'prompt',
+          'id': _nextPrompt++,
+          'op': 'Choosing the game folder',
+          'kind': 'folder',
+          'question': 'Game folder',
+          'suggest': r'H:\Games\Armored Warfare',
+          'context': <String>[],
+        });
+      case 'folderInfo':
+        final path = '${c['value'] ?? ''}';
+        final valid = RegExp(r'^[A-Za-z]:\\').hasMatch(path);
+        _emit({
+          'type': 'folderInfo',
+          'prompt': c['prompt'],
+          'path': path,
+          'valid': valid,
+          'free': valid ? 182536110080 : 0,
+          'drive': valid ? '${path[0].toUpperCase()}:' : '',
+          'install': valid && path.toLowerCase().contains('armored warfare'),
+          'branch': '',
+          'used': false,
         });
       case 'checkUpdate':
         _emit({

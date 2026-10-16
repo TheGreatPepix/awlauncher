@@ -5,18 +5,29 @@ import 'package:flutter/foundation.dart';
 import '../core/core.dart';
 import '../i18n/strings.dart';
 import '../platform/desktop.dart';
+import '../theme/palette.dart';
 import 'models.dart';
 
 enum AppPage { home, game, activity, settings }
 
 const _logLimit = 200000;
 
-final _release = RegExp(r'^v\d+\.\d+\.\d+$');
+/// A release version, as the WebView page's isRelease saw it.
+final _release = RegExp(r'^v?\d+(\.\d+){0,2}(-|$)');
+
+bool isRelease(String v) => _release.hasMatch(v);
 
 /// The window's state, kept in step with the core's events.
 class Controller extends ChangeNotifier {
   Controller(this.core, this.desktop) {
     _sub = core.events.listen(_receive);
+    desktop.listen(
+      DesktopEvents(
+        visible: (shown) => send({'cmd': 'visible', 'ok': shown}),
+        play: () => send({'cmd': 'playLast'}),
+        exit: _trayExit,
+      ),
+    );
   }
 
   final Core core;
@@ -25,12 +36,16 @@ class Controller extends ChangeNotifier {
 
   final _notices = StreamController<Notice>.broadcast();
   final _exitAsks = StreamController<void>.broadcast();
+  final _updateOffers = StreamController<UpdateInfo>.broadcast();
 
   /// Short messages for snackbars.
   Stream<Notice> get notices => _notices.stream;
 
   /// Fires when the core asks to confirm leaving with operations running.
   Stream<void> get exitAsks => _exitAsks.stream;
+
+  /// Fires when a check the person asked for finds a newer release.
+  Stream<UpdateInfo> get updateOffers => _updateOffers.stream;
 
   var page = AppPage.home;
   var ready = false;
@@ -54,12 +69,23 @@ class Controller extends ChangeNotifier {
 
   final prompts = <PromptRequest>[];
   var signInActive = false;
-  Event? gameInfo;
-  Event? availableClients;
+  GameInfo? gameInfo;
+  List<AvailableClient> availableClients = const [];
+  var availableClientsFailed = false, availableVKFailed = false;
   UpdateInfo? update;
   var updateUnseen = false;
+  var checkingUpdate = false;
+
+  /// The latest folder check for each open folder prompt.
+  final folderInfo = <int, FolderInfo>{};
+
+  /// The palette the editor shows before it is saved.
+  Palette? preview;
 
   bool get busy => ops.isNotEmpty;
+
+  /// Whether the running operation waits, paused by the person.
+  bool get paused => progress.paused && busy;
   Operation? get gameOp => ops.where((o) => o.game).firstOrNull;
   Operation? accountOp(String id) => ops.where((o) => o.account == id).firstOrNull;
   Account? get selectedAccount => accounts.where((a) => a.id == selected).firstOrNull;
@@ -67,19 +93,33 @@ class Controller extends ChangeNotifier {
 
   String get lang => resolveLang(prefs.lang, systemLang);
 
+  String get opsTitle => ops.map((o) => tb(o.title)).join(' · ');
+
+  bool get updating => ops.any((o) => o.title == 'Updating AWLauncher');
+
   /// The line under the navigation: what the launcher is doing now.
   String get status {
     if (busy) {
       final op = gameOp;
       final loading =
           op != null && (op.title == 'Downloading game' || (op.title.startsWith('Starting ') && progress.active));
-      final what = loading ? t('Loading game') : ops.map((o) => tb(o.title)).join(' · ');
+      final what = loading ? t('Loading game') : opsTitle;
       return (progress.paused ? t('Paused · ') : '') + what;
     }
     return running ? t('The game is running') : t('Ready');
   }
 
   void start() => send({'cmd': 'ready'});
+
+  /// Exit from the tray: the core asks first if something is running. With
+  /// the core gone there is nobody to ask.
+  void _trayExit() {
+    if (fatal != null) {
+      desktop.quit();
+    } else {
+      send({'cmd': 'requestExit'});
+    }
+  }
 
   void send(Map<String, Object?> command) => core.send(command);
 
@@ -99,6 +139,17 @@ class Controller extends ChangeNotifier {
     notifyListeners();
   }
 
+  void setAutostart(String mode) {
+    autostart = mode;
+    send({'cmd': 'autostart', 'value': mode});
+    notifyListeners();
+  }
+
+  void previewPalette(Palette? p) {
+    preview = p;
+    notifyListeners();
+  }
+
   void setPrefs(Prefs p) {
     prefs = p;
     currentLang = lang;
@@ -108,6 +159,7 @@ class Controller extends ChangeNotifier {
 
   void answer(PromptRequest p, String value, {bool ok = true}) {
     prompts.removeWhere((x) => x.id == p.id);
+    folderInfo.remove(p.id);
     send({'cmd': 'answer', 'prompt': p.id, 'value': value, 'ok': ok});
     notifyListeners();
   }
@@ -116,6 +168,25 @@ class Controller extends ChangeNotifier {
     a ??= selectedAccount;
     if (canPlay(a)) send({'cmd': 'play', 'account': a!.id});
   }
+
+  void openLink(String url) => send({'cmd': 'openLink', 'value': url});
+
+  void checkUpdate() {
+    checkingUpdate = true;
+    send({'cmd': 'checkUpdate'});
+    notifyListeners();
+  }
+
+  void applyUpdate() {
+    if (busy) {
+      _notices.add(Notice(t('Wait until {op} finishes', {'op': opsTitle})));
+      return;
+    }
+    send({'cmd': 'applyUpdate'});
+  }
+
+  /// Asks the core what is in [path] for the folder prompt [prompt].
+  void checkFolder(int prompt, String path) => send({'cmd': 'folderInfo', 'prompt': prompt, 'value': path});
 
   void clearLog() {
     _log.clear();
@@ -149,6 +220,7 @@ class Controller extends ChangeNotifier {
         prompts
           ..removeWhere((x) => x.id == p.id)
           ..add(p);
+        desktop.showWindow();
       case 'done':
         _onDone(ev);
       case 'notice':
@@ -159,9 +231,14 @@ class Controller extends ChangeNotifier {
       case 'signin':
         signInActive = ev['active'] == true;
       case 'gameInfo':
-        gameInfo = ev;
+        gameInfo = GameInfo.fromJson(ev);
       case 'availableClients':
-        availableClients = ev;
+        availableClients = [for (final c in (ev['clients'] as List? ?? const [])) AvailableClient.fromJson(c as Event)];
+        availableClientsFailed = ev['failed'] == true;
+        availableVKFailed = ev['vkFailed'] == true;
+      case 'folderInfo':
+        final info = FolderInfo.fromJson(ev);
+        folderInfo[info.prompt] = info;
       case 'update':
         _onUpdate(UpdateInfo.fromJson(ev));
       case 'confirmExit':
@@ -234,15 +311,18 @@ class Controller extends ChangeNotifier {
   }
 
   void _onUpdate(UpdateInfo u) {
+    checkingUpdate = false;
     update = u;
     if (u.available && page != AppPage.settings) updateUnseen = true;
     if (u.quiet) return;
-    if (u.error != null) {
+    if (u.available) {
+      _updateOffers.add(u);
+    } else if (u.error != null) {
       _notices.add(Notice(t('Could not check for updates: {error}', {'error': u.error})));
     } else if (!u.available) {
       _notices.add(
         Notice(
-          _release.hasMatch(u.current)
+          isRelease(u.current)
               ? t('AWLauncher {version} is up to date', {'version': u.current})
               : t('Development build; the latest release is {latest}', {'latest': u.latest}),
         ),
@@ -255,6 +335,7 @@ class Controller extends ChangeNotifier {
     _sub.cancel();
     _notices.close();
     _exitAsks.close();
+    _updateOffers.close();
     super.dispose();
   }
 }

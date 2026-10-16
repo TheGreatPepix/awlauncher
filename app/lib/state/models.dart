@@ -25,7 +25,14 @@ class Account {
   final List<String> languages;
   final bool last;
 
-  bool get isFX => provider == 'fxid';
+  /// FX ID and Steam accounts both play the FX ID client.
+  bool get isFX => provider == 'fxid' || provider == 'steam';
+
+  String get providerName => switch (provider) {
+    'steam' => 'Steam',
+    'fxid' => 'FX ID',
+    _ => 'VK Play',
+  };
 }
 
 class Operation {
@@ -163,13 +170,14 @@ class UpdateInfo {
       latest = j['latest'] as String?,
       page = '${j['page'] ?? ''}',
       notes = j['notes'] as String?,
+      published = j['published'] as String?,
       available = j['available'] == true,
       canApply = j['canApply'] == true,
       quiet = j['quiet'] == true,
       error = j['error'] as String?;
 
   final String current, page;
-  final String? latest, notes, error;
+  final String? latest, notes, published, error;
   final bool available, canApply, quiet;
 }
 
@@ -186,3 +194,59 @@ class Notice {
 }
 
 enum NoticeKind { info, ok, error }
+
+/// An installed game client.
+class Client {
+  Client.fromJson(Map<String, dynamic> j)
+    : kind = '${j['kind'] ?? ''}',
+      branch = '${j['branch'] ?? ''}',
+      dir = '${j['dir'] ?? ''}',
+      version = '${j['version'] ?? ''}',
+      downloads = _int(j['downloads']);
+
+  final String kind, branch, dir, version;
+  final int downloads;
+}
+
+/// The installed clients and the space they take.
+class GameInfo {
+  GameInfo.fromJson(Map<String, dynamic> j)
+    : dir = '${j['dir'] ?? ''}',
+      clients = _maps(j['clients']).map(Client.fromJson).toList(),
+      downloads = _int(j['downloads']),
+      free = _int(j['free']),
+      branchPaths = {for (final e in ((j['branchPaths'] as Map?) ?? const {}).entries) '${e.key}': '${e.value}'};
+
+  final String dir;
+  final List<Client> clients;
+  final int downloads, free;
+  final Map<String, String> branchPaths;
+}
+
+/// A client the accounts can download.
+class AvailableClient {
+  AvailableClient.fromJson(Map<String, dynamic> j)
+    : kind = '${j['kind'] ?? ''}',
+      branch = '${j['branch'] ?? ''}',
+      account = '${j['account'] ?? ''}',
+      version = '${j['version'] ?? ''}';
+
+  final String kind, branch, account, version;
+}
+
+/// What the core found in a folder the game folder prompt offers.
+class FolderInfo {
+  FolderInfo.fromJson(Map<String, dynamic> j)
+    : prompt = _int(j['prompt']),
+      path = '${j['path'] ?? ''}',
+      valid = j['valid'] == true,
+      free = _int(j['free']),
+      drive = '${j['drive'] ?? ''}',
+      install = j['install'] == true,
+      branch = '${j['branch'] ?? ''}',
+      used = j['used'] == true;
+
+  final int prompt, free;
+  final String path, drive, branch;
+  final bool valid, install, used;
+}

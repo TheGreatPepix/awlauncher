@@ -4,7 +4,17 @@ import '../../i18n/strings.dart';
 import '../../state/controller.dart';
 import '../../state/models.dart';
 import '../../theme/palette.dart';
+import '../palette_widgets.dart';
+import '../widgets.dart';
 import 'page_frame.dart';
+
+const _autostartText = {
+  'off': 'AWLauncher starts only when you open it.',
+  'window': 'Opens its window when you sign in to Windows.',
+  'tray': 'Starts in the notification area when you sign in to Windows; click its icon to open it.',
+};
+
+String paletteName(Palette p) => '${t(presetName(p) ?? 'Custom')} · ${t(p.style.label)}';
 
 class SettingsPage extends StatelessWidget {
   const SettingsPage({super.key, required this.c, required this.onExit});
@@ -12,167 +22,157 @@ class SettingsPage extends StatelessWidget {
   final Controller c;
   final VoidCallback onExit;
 
-  String _paletteName(Palette p) => '${t(presetName(p) ?? 'Custom')} · ${t(p.style.label)}';
-
   @override
   Widget build(BuildContext context) {
     final prefs = c.prefs;
-    final autostartHint = switch (c.autostart) {
-      'window' => 'Opens its window when you sign in to Windows.',
-      'tray' => 'Starts in the notification area when you sign in to Windows; click its icon to open it.',
-      _ => 'AWLauncher starts only when you open it.',
-    };
     return PageFrame(
       title: t('Settings'),
       children: [
-        Section(
-          title: t('Launcher'),
+        SectionLabel(t('Launcher'), first: true),
+        ListCard(
           children: [
-            ListTile(
+            ListItem(
+              icon: Icons.storage,
               title: Text(t('Launcher data')),
-              subtitle: Text(c.dataDir),
-              trailing: TextButton(onPressed: () => c.send({'cmd': 'openDataFolder'}), child: Text(t('Open'))),
+              sub: c.dataDir.isEmpty ? r'%LOCALAPPDATA%\AWLauncher' : c.dataDir,
+              subStyle: monoStyle(context, size: 13),
+              trailing: [
+                TextButton(onPressed: () => c.send({'cmd': 'openDataFolder'}), child: Text(t('Open'))),
+              ],
             ),
-            ListTile(
+            ListItem(
+              icon: Icons.power_settings_new,
               title: Text(t('Start with Windows')),
-              subtitle: Text(t(autostartHint)),
-              trailing: SegmentedButton<String>(
-                showSelectedIcon: false,
-                segments: [
-                  for (final m in ['off', 'window', 'tray']) ButtonSegment(value: m, label: Text(t(_capital(m)))),
-                ],
-                selected: {c.autostart},
-                onSelectionChanged: (s) => c.send({'cmd': 'autostart', 'value': s.first}),
+              sub: t(_autostartText[c.autostart] ?? _autostartText['off']!),
+              wide: Segmented<String>(
+                options: [('off', t('Off')), ('window', t('Window')), ('tray', t('Tray'))],
+                selected: c.autostart,
+                onChanged: c.setAutostart,
               ),
             ),
-            ListTile(
+            ListItem(
+              icon: Icons.sports_esports,
+              title: Text(t('Hide after the game starts')),
+              sub: t(
+                'The launcher goes to the notification area when the game starts. When off, its window stays open.',
+              ),
+              wide: Segmented<bool>(
+                options: [(false, t('Off')), (true, t('On'))],
+                selected: c.hideOnLaunch,
+                onChanged: (v) => c.send({'cmd': 'hideOnLaunch', 'value': v ? 'on' : 'off'}),
+              ),
+            ),
+            ListItem(
+              icon: Icons.logout,
               title: Text(t('Exit AWLauncher')),
-              subtitle: Text(t('Close the launcher completely')),
-              trailing: TextButton(onPressed: onExit, child: Text(t('Exit'))),
+              sub: t('Close the launcher completely'),
+              trailing: [TextButton(onPressed: onExit, child: Text(t('Exit')))],
             ),
           ],
         ),
-        Section(
-          title: t('Appearance'),
+        SectionLabel(t('Appearance')),
+        ListCard(
           children: [
-            ListTile(
+            ListItem(
+              icon: Icons.contrast,
               title: Text(t('Theme')),
-              trailing: SegmentedButton<ThemeChoice>(
-                showSelectedIcon: false,
-                segments: [
-                  for (final m in ThemeChoice.values) ButtonSegment(value: m, label: Text(t(_capital(m.name)))),
+              wide: Segmented<ThemeChoice>(
+                options: [
+                  (ThemeChoice.system, t('System')),
+                  (ThemeChoice.light, t('Light')),
+                  (ThemeChoice.dark, t('Dark')),
                 ],
-                selected: {prefs.theme},
-                onSelectionChanged: (s) => c.setPrefs(prefs.copyWith(theme: s.first)),
+                selected: prefs.theme,
+                onChanged: (v) => c.setPrefs(prefs.copyWith(theme: v)),
               ),
             ),
-            ListTile(title: Text(t('Color')), subtitle: Text(_paletteName(prefs.palette))),
-            Padding(
-              padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
-              child: Wrap(
-                spacing: 10,
-                runSpacing: 10,
-                children: [
-                  for (final (_, p) in presets)
-                    _Swatch(
-                      p: p,
-                      tooltip: _paletteName(p),
-                      selected: p == prefs.palette,
-                      onTap: () => c.setPrefs(prefs.copyWith(palette: p)),
-                    ),
-                  for (final p in prefs.palettes)
-                    _Swatch(
-                      p: p,
-                      tooltip: _paletteName(p),
-                      selected: p == prefs.palette,
-                      onTap: () => c.setPrefs(prefs.copyWith(palette: p)),
-                    ),
-                ],
-              ),
+            ListItem(
+              icon: Icons.palette,
+              title: Text(t('Color')),
+              sub: paletteName(c.preview ?? prefs.palette),
+              wide: Palettes(c: c),
+              wideWidth: 332,
             ),
-            ListTile(
+            ListItem(
+              icon: Icons.language,
               title: Text(t('Language')),
-              trailing: SegmentedButton<String>(
-                showSelectedIcon: false,
-                segments: [
-                  ButtonSegment(value: 'auto', label: Text(t('Auto'))),
-                  const ButtonSegment(value: 'en', label: Text('English')),
-                  const ButtonSegment(value: 'ru', label: Text('Русский')),
-                ],
-                selected: {prefs.lang},
-                onSelectionChanged: (s) => c.setPrefs(prefs.copyWith(lang: s.first)),
+              wide: Segmented<String>(
+                options: [('auto', t('Auto')), ('en', 'English'), ('ru', 'Русский')],
+                selected: prefs.lang,
+                onChanged: (v) => c.setPrefs(prefs.copyWith(lang: v)),
               ),
             ),
           ],
         ),
-        Section(
-          title: t('About'),
+        SectionLabel(t('About')),
+        ListCard(
           children: [
-            ListTile(
-              title: Text(t('Version')),
-              subtitle: Text(c.version),
-              trailing: TextButton(
-                onPressed: () => c.send({'cmd': 'checkUpdate'}),
-                child: Text(t('Check for updates')),
+            ListItem(
+              icon: Icons.info,
+              title: const Text('AWLauncher'),
+              sub: t(
+                'An independent Armored Warfare launcher with FX ID and VK Play sign-in, game installation, updates and launch.',
               ),
             ),
+            _UpdateItem(c: c),
           ],
         ),
       ],
     );
   }
-
-  static String _capital(String s) => s[0].toUpperCase() + s.substring(1);
 }
 
-/// A palette's swatch: its primary, secondary and tertiary containers.
-class _Swatch extends StatelessWidget {
-  const _Swatch({required this.p, required this.tooltip, required this.selected, required this.onTap});
+class _UpdateItem extends StatelessWidget {
+  const _UpdateItem({required this.c});
 
-  final Palette p;
-  final String tooltip;
-  final bool selected;
-  final VoidCallback onTap;
+  final Controller c;
 
   @override
   Widget build(BuildContext context) {
-    final scheme = p.scheme(Theme.of(context).brightness);
-    return Tooltip(
-      message: tooltip,
-      child: InkResponse(
-        onTap: onTap,
-        radius: 28,
-        child: Container(
-          width: 48,
-          height: 48,
-          decoration: BoxDecoration(
-            shape: BoxShape.circle,
-            border: Border.all(color: selected ? scheme.primary : Colors.transparent, width: 3),
-          ),
-          padding: const EdgeInsets.all(3),
-          child: ClipOval(
-            child: Column(
-              children: [
-                Expanded(
-                  child: ColoredBox(color: scheme.primary, child: const SizedBox.expand()),
-                ),
-                Expanded(
-                  child: Row(
-                    children: [
-                      Expanded(
-                        child: ColoredBox(color: scheme.secondaryContainer, child: const SizedBox.expand()),
-                      ),
-                      Expanded(
-                        child: ColoredBox(color: scheme.tertiaryContainer, child: const SizedBox.expand()),
-                      ),
-                    ],
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ),
-      ),
+    final u = c.update;
+    final release = isRelease(c.version);
+    var status = t('Updates come from the releases on GitHub.');
+    if (c.version.isNotEmpty && !release) status = t('Development build. Updates come from the releases on GitHub.');
+    if (c.checkingUpdate) {
+      status = t('Checking GitHub for a newer release…');
+    } else if (c.updating) {
+      status = t('Downloading the update. AWLauncher restarts when it is ready.');
+    } else if (u?.error != null) {
+      status = t('Could not check: {error}', {'error': u!.error});
+    } else if (u != null && u.available) {
+      status = u.published != null
+          ? t('{latest} is available, released {date}.', {'latest': u.latest, 'date': u.published})
+          : t('{latest} is available.', {'latest': u.latest});
+    } else if (u?.latest != null && release) {
+      status = t('Up to date. The latest release is {latest}.', {'latest': u!.latest});
+    } else if (u?.latest != null) {
+      status = t('Development build. The latest release is {latest}.', {'latest': u!.latest});
+    }
+    final available = u != null && u.available;
+    final blocked = available && u.canApply && c.busy;
+    final label = available
+        ? (u.canApply ? t('Update to {latest}', {'latest': u.latest}) : t('Download'))
+        : t('Check for updates');
+    void press() {
+      if (available) {
+        u.canApply ? c.applyUpdate() : c.openLink(u.page);
+      } else {
+        c.checkUpdate();
+      }
+    }
+
+    final enabled = !c.checkingUpdate && !c.updating && !blocked;
+    final button = available
+        ? FilledButton(onPressed: enabled ? press : null, child: Text(label))
+        : FilledButton.tonal(onPressed: enabled ? press : null, child: Text(label));
+    return ListItem(
+      icon: Icons.update,
+      title: Text('${t('Version')}${release ? ' ${c.version}' : ''}'),
+      sub: status,
+      trailing: [
+        if (available) TextButton(onPressed: () => c.openLink(u.page), child: Text(t('Release page'))),
+        blocked ? Tooltip(message: t('Wait until {op} finishes', {'op': c.opsTitle}), child: button) : button,
+      ],
     );
   }
 }
