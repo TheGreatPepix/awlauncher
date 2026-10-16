@@ -1,4 +1,4 @@
-//go:build !windows
+//go:build !windows && !linux
 
 package update
 
@@ -6,6 +6,10 @@ import (
 	"errors"
 	"net/http"
 )
+
+const SetupAssetName = ""
+
+func canInstall() bool { return false }
 
 var errNoSetup = errors.New("AWLauncher cannot install updates on this system")
 

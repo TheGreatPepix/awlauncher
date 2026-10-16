@@ -140,6 +140,7 @@ jobs:
             dist/AWLauncher.exe
           if-no-files-found: error
 
+  # The core's tests on Linux, and the Linux launcher as an AppImage.
   linux:
     runs-on: ubuntu-latest
     steps:
@@ -163,13 +164,56 @@ jobs:
           flutter-version: ${{ env.FLUTTER_VERSION }}
           cache: true
 
+      - name: Version
+        working-directory: .
+        run: |
+          if [[ $GITHUB_REF == refs/tags/v* ]]; then version=$GITHUB_REF_NAME; else version=$(git describe --tags --match 'v*' --always); fi
+          core=
+          if [[ $version =~ ^v([0-9]+(\.[0-9]+){0,2})(-|$) ]]; then core=${BASH_REMATCH[1]}; fi
+          IFS=. read -r major minor patch <<< "${core:-0}"
+          build=0
+          if [[ $version =~ -([0-9]+)-g[0-9a-f]+$ ]]; then build=${BASH_REMATCH[1]}; fi
+          {
+            echo "AW_VERSION=$version"
+            echo "AW_APP_VERSION=${version#v}"
+            echo "AW_NAME=${major:-0}.${minor:-0}.${patch:-0}"
+            echo "AW_BUILD=$build"
+          } >> "$GITHUB_ENV"
+          echo "Version: $version (${major:-0}.${minor:-0}.${patch:-0}+$build)"
+
+      - name: Core
+        run: |
+          stamp="-X github.com/TheGreatPepix/awlauncher/internal/launcher.Version=$AW_VERSION"
+          go build -trimpath -ldflags "-s -w $stamp" -o "$RUNNER_TEMP/awcore" ./cmd/awcore
+
       - name: Test the window
         working-directory: app
         run: |
-          go build -o "$RUNNER_TEMP/awcore" ../cmd/awcore
           flutter pub get
           flutter analyze
           AWCORE="$RUNNER_TEMP/awcore" flutter test
+
+      - name: Build
+        working-directory: app
+        run: |
+          sudo apt-get update -q
+          sudo apt-get install -y -q ninja-build libgtk-3-dev desktop-file-utils
+          flutter build linux --release --build-name "$AW_NAME" --build-number "$AW_BUILD"
+          cp "$RUNNER_TEMP/awcore" build/linux/x64/release/bundle/
+
+      - name: AppImage
+        run: |
+          curl -sSfL -o "$RUNNER_TEMP/appimagetool" https://github.com/AppImage/appimagetool/releases/download/1.9.0/appimagetool-x86_64.AppImage
+          chmod +x "$RUNNER_TEMP/appimagetool"
+          mkdir -p dist
+          APPIMAGETOOL="$RUNNER_TEMP/appimagetool" app/linux/packaging/build-appimage.sh app/build/linux/x64/release/bundle dist/AWLauncher-x86_64.AppImage
+          ls -l dist
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: AWLauncher-linux-${{ github.sha }}
+          path: dist/AWLauncher-x86_64.AppImage
+          if-no-files-found: error
 
   release:
     if: startsWith(github.ref, 'refs/tags/v')
@@ -183,6 +227,11 @@ jobs:
           name: AWLauncher-${{ github.sha }}
           path: dist
 
+      - uses: actions/download-artifact@v4
+        with:
+          name: AWLauncher-linux-${{ github.sha }}
+          path: dist
+
       - name: Publish the release
         env:
           GH_TOKEN: ${{ github.token }}
@@ -190,4 +239,4 @@ jobs:
         run: |
           gh release view "$GITHUB_REF_NAME" > /dev/null 2>&1 ||
             gh release create "$GITHUB_REF_NAME" --title "$GITHUB_REF_NAME" --generate-notes
-          gh release upload "$GITHUB_REF_NAME" dist/AWLauncher-Setup.exe dist/AWLauncher-portable.zip dist/AWLauncher.exe --clobber
+          gh release upload "$GITHUB_REF_NAME" dist/AWLauncher-Setup.exe dist/AWLauncher-portable.zip dist/AWLauncher.exe dist/AWLauncher-x86_64.AppImage --clobber

@@ -102,6 +102,9 @@ const _ru = <String, String>{
   'Allow mods': 'Разрешить моды',
   'Keep patch backups': 'Сохранять бэкапы патчей',
   'Hide after the game starts': 'Скрывать после запуска игры',
+  'Newest found: {name}. umu-launcher runs it when installed, otherwise Steam Linux Runtime.': 'Самый новый из найденных: {name}. Запускается через umu-launcher, если он установлен, иначе через Steam Linux Runtime.',
+  'Newest': 'Самый новый',
+  'Change': 'Изменить',
   'The launcher goes to the notification area when the game starts. When off, its window stays open.':
       'При запуске игры лаунчер уходит в область уведомлений. Если выключено, окно остаётся открытым.',
   'VK Play patches save the files they replace to -gup-\\awlauncher-cache until the next update. When off, they are deleted as soon as a patch is installed.': 'Патчи VK Play сохраняют заменяемые файлы в -gup-\\awlauncher-cache до следующего обновления. Если выключено, они удаляются сразу после установки патча.',

@@ -41,6 +41,7 @@ func TestNewerRelease(t *testing.T) {
 }
 
 func TestCheckForUpdate(t *testing.T) {
+	t.Setenv("APPIMAGE", filepath.Join(t.TempDir(), "AWLauncher.AppImage"))
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if r.Header.Get("User-Agent") == "" {
 			t.Error("the request has no User-Agent, which GitHub requires")

@@ -1,3 +1,5 @@
+import 'dart:io';
+
 import 'package:flutter/material.dart';
 
 import '../../i18n/strings.dart';
@@ -40,28 +42,31 @@ class SettingsPage extends StatelessWidget {
                 TextButton(onPressed: () => c.send({'cmd': 'openDataFolder'}), child: Text(t('Open'))),
               ],
             ),
-            ListItem(
-              icon: Icons.power_settings_new,
-              title: Text(t('Start with Windows')),
-              sub: t(_autostartText[c.autostart] ?? _autostartText['off']!),
-              wide: Segmented<String>(
-                options: [('off', t('Off')), ('window', t('Window')), ('tray', t('Tray'))],
-                selected: c.autostart,
-                onChanged: c.setAutostart,
+            if (Platform.isWindows)
+              ListItem(
+                icon: Icons.power_settings_new,
+                title: Text(t('Start with Windows')),
+                sub: t(_autostartText[c.autostart] ?? _autostartText['off']!),
+                wide: Segmented<String>(
+                  options: [('off', t('Off')), ('window', t('Window')), ('tray', t('Tray'))],
+                  selected: c.autostart,
+                  onChanged: c.setAutostart,
+                ),
               ),
-            ),
-            ListItem(
-              icon: Icons.sports_esports,
-              title: Text(t('Hide after the game starts')),
-              sub: t(
-                'The launcher goes to the notification area when the game starts. When off, its window stays open.',
+            if (Platform.isWindows)
+              ListItem(
+                icon: Icons.sports_esports,
+                title: Text(t('Hide after the game starts')),
+                sub: t(
+                  'The launcher goes to the notification area when the game starts. When off, its window stays open.',
+                ),
+                wide: Segmented<bool>(
+                  options: [(false, t('Off')), (true, t('On'))],
+                  selected: c.hideOnLaunch,
+                  onChanged: (v) => c.send({'cmd': 'hideOnLaunch', 'value': v ? 'on' : 'off'}),
+                ),
               ),
-              wide: Segmented<bool>(
-                options: [(false, t('Off')), (true, t('On'))],
-                selected: c.hideOnLaunch,
-                onChanged: (v) => c.send({'cmd': 'hideOnLaunch', 'value': v ? 'on' : 'off'}),
-              ),
-            ),
+            if (c.protons.isNotEmpty) _ProtonItem(c: c),
             ListItem(
               icon: Icons.logout,
               title: Text(t('Exit AWLauncher')),
@@ -116,6 +121,47 @@ class SettingsPage extends StatelessWidget {
             ),
             _UpdateItem(c: c),
           ],
+        ),
+      ],
+    );
+  }
+}
+
+/// The Proton build the game runs with on Linux.
+class _ProtonItem extends StatelessWidget {
+  const _ProtonItem({required this.c});
+
+  final Controller c;
+
+  @override
+  Widget build(BuildContext context) {
+    final chosen = c.protons.where((p) => p.path == c.proton).firstOrNull;
+    final sub = chosen != null
+        ? chosen.path
+        : t('Newest found: {name}. umu-launcher runs it when installed, otherwise Steam Linux Runtime.', {
+            'name': c.protons.first.name,
+          });
+    return ListItem(
+      icon: Icons.layers,
+      title: Text('Proton${chosen != null ? ' · ${chosen.name}' : ''}'),
+      sub: sub,
+      trailing: [
+        MenuAnchor(
+          menuChildren: [
+            MenuItemButton(
+              leadingIcon: Icon(c.proton.isEmpty || chosen == null ? Icons.check : null),
+              onPressed: () => c.setProton(''),
+              child: Text(t('Newest')),
+            ),
+            for (final p in c.protons)
+              MenuItemButton(
+                leadingIcon: Icon(p.path == c.proton ? Icons.check : null),
+                onPressed: () => c.setProton(p.path),
+                child: Text(p.name),
+              ),
+          ],
+          builder: (context, menu, _) =>
+              TextButton(onPressed: () => menu.isOpen ? menu.close() : menu.open(), child: Text(t('Change'))),
         ),
       ],
     );

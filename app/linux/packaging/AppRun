@@ -1,0 +1,5 @@
+#!/bin/sh
+# Starts the window from the mounted AppImage. Nothing goes into
+# LD_LIBRARY_PATH: the game's Proton inherits this environment.
+here=$(dirname "$(readlink -f "$0")")
+exec "$here/awlauncher" "$@"

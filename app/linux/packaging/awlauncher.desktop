@@ -1,0 +1,9 @@
+[Desktop Entry]
+Type=Application
+Name=AWLauncher
+Comment=Armored Warfare launcher
+Exec=awlauncher
+Icon=io.github.thegreatpepix.awlauncher
+Categories=Game;
+StartupWMClass=io.github.thegreatpepix.awlauncher
+Terminal=false

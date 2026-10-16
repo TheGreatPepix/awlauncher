@@ -32,6 +32,8 @@ type uiState struct {
 	AllowMods     bool                 `json:"allowMods"`
 	PatchBackups  bool                 `json:"patchBackups"`
 	HideOnLaunch  bool                 `json:"hideOnLaunch"`
+	Proton        string               `json:"proton"`
+	Protons       []platform.Proton    `json:"protons"`
 	Data          string               `json:"data"`
 	Version       string               `json:"version"`
 	Autostart     string               `json:"autostart"`
@@ -65,6 +67,7 @@ func (g *App) emitState(withLog bool) {
 	cfg := g.store.Get()
 	s := uiState{
 		Type: "state", Accounts: accountViews(cfg), Game: cfg.Game, FXGame: cfg.FXGame, AllowMods: cfg.AllowMods, PatchBackups: !cfg.NoBackups, HideOnLaunch: !cfg.KeepOpen,
+		Proton: cfg.Proton, Protons: platform.Protons(),
 		SuggestedGame: launcher.SuggestGameFolder(cfg.Game), Ops: g.ops.List(), Running: g.gameUp.Load(),
 		Version: launcher.Version, Autostart: startup.Mode(), SystemLang: platform.Language(),
 	}

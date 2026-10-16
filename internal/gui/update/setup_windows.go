@@ -24,6 +24,13 @@ import (
 // for that launcher to quit, asks nothing and starts the new version.
 const setupUpdateFlag = "/UPDATE"
 
+// SetupAssetName is the installer the launcher updates itself with. The
+// launcher is a folder, so it updates through the installer instead of
+// replacing one file.
+const SetupAssetName = "AWLauncher-Setup.exe"
+
+func canInstall() bool { return true }
+
 // DownloadSetup downloads the installer of the newest release into a new
 // temporary folder.
 func DownloadSetup(client *http.Client, current string) (string, error) {

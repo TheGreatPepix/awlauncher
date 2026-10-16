@@ -206,35 +206,6 @@ func OpenBrowser(link string) error {
 	return nil
 }
 
-func gameRunner() ([]string, []string, error) {
-	var runner []string
-	if custom := strings.Fields(os.Getenv("AWLAUNCHER_RUNNER")); len(custom) > 0 {
-		runner = custom
-	} else if path, err := exec.LookPath("umu-run"); err == nil {
-		runner = []string{path}
-	} else if path, err := exec.LookPath("wine"); err == nil {
-		runner = []string{path}
-	} else {
-		return nil, nil, errors.New("nothing can run the Windows game here: install umu-launcher (umu-run) or Wine, or set AWLAUNCHER_RUNNER")
-	}
-	env := os.Environ()
-	if os.Getenv("WINEPREFIX") == "" {
-		dir, err := DataDir()
-		if err != nil {
-			return nil, nil, err
-		}
-		prefix := filepath.Join(dir, "prefix")
-		if err := os.MkdirAll(prefix, 0755); err != nil {
-			return nil, nil, err
-		}
-		env = append(env, "WINEPREFIX="+prefix)
-	}
-	if strings.HasPrefix(filepath.Base(runner[0]), "umu-run") && os.Getenv("GAMEID") == "" {
-		env = append(env, "GAMEID=umu-default")
-	}
-	return runner, env, nil
-}
-
 func runnerLog() (io.WriteCloser, string, error) {
 	dir, err := DataDir()
 	if err != nil {
@@ -248,23 +219,23 @@ func runnerLog() (io.WriteCloser, string, error) {
 	return f, path, err
 }
 
-func runnerCommand(exe string, args []string, dir string, extra []string) (*exec.Cmd, string, error) {
-	runner, env, err := gameRunner()
+func runnerCommand(exe string, args []string, dir string, extra []string) (*exec.Cmd, string, string, error) {
+	r, err := gameRunner(HomeDir(), dir, exec.LookPath)
 	if err != nil {
-		return nil, "", err
+		return nil, "", "", err
 	}
-	cmd := exec.Command(runner[0], append(append(runner[1:len(runner):len(runner)], exe), args...)...)
-	cmd.Dir, cmd.Env = dir, gameEnv(env, extra)
+	cmd := exec.Command(r.argv[0], append(append(r.argv[1:len(r.argv):len(r.argv)], exe), args...)...)
+	cmd.Dir, cmd.Env = dir, gameEnv(r.env, extra)
 	log, path, err := runnerLog()
 	if err != nil {
-		return nil, "", err
+		return nil, "", "", err
 	}
 	cmd.Stdout, cmd.Stderr = log, log
-	return cmd, path, nil
+	return cmd, r.name, path, nil
 }
 
 func StartGame(exe string, args []string, dir string, env []string) (int, error) {
-	cmd, logPath, err := runnerCommand(exe, args, dir, env)
+	cmd, runner, logPath, err := runnerCommand(exe, args, dir, env)
 	if err != nil {
 		return 0, err
 	}
@@ -273,18 +244,18 @@ func StartGame(exe string, args []string, dir string, env []string) (int, error)
 	if err != nil {
 		return 0, err
 	}
-	log.Printf("Started through %s; its output goes to %s\n", filepath.Base(cmd.Path), logPath)
+	log.Printf("Started through %s; its output goes to %s\n", runner, logPath)
 	go cmd.Wait()
 	return cmd.Process.Pid, nil
 }
 
 func RunRedist(path string) error {
-	cmd, logPath, err := runnerCommand(path, []string{"/install", "/passive", "/norestart"}, filepath.Dir(path), nil)
+	cmd, runner, logPath, err := runnerCommand(path, []string{"/install", "/passive", "/norestart"}, filepath.Dir(path), nil)
 	if err != nil {
 		return err
 	}
 	defer cmd.Stdout.(io.Closer).Close()
-	log.Printf("Installing through %s; the first run may download Proton. Output: %s\n", filepath.Base(cmd.Path), logPath)
+	log.Printf("Installing through %s; the first run may take a while. Output: %s\n", runner, logPath)
 	return cmd.Run()
 }
 
