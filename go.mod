@@ -5,6 +5,7 @@ go 1.26.6
 require (
 	github.com/bodgit/sevenzip v1.6.5
 	github.com/go-deltasync/vcdiff v0.0.0-20260806072942-2820a2b86a04
+	github.com/godbus/dbus/v5 v5.1.0
 	golang.org/x/sys v0.40.0
 )
 

@@ -60,7 +60,7 @@ Download `AWLauncher-x86_64.AppImage`, make it executable and start it. On Steam
 
 The launcher runs the Windows game itself, in its own Wine prefix in `~/.local/share/awlauncher/prefix`. It uses umu-launcher when it is installed (in `PATH`, or the one of Lutris or Heroic), and otherwise Proton from Steam in the Steam Linux Runtime, as Steam does. The newest GE-Proton is picked first, then the newest Proton from Valve; Settings → Proton picks another. On a Steam Deck where no game has used Proton yet, install one in Steam (Library → Tools → Proton). `AWLAUNCHER_RUNNER` overrides the command, and the game's output goes to `~/.local/share/awlauncher/game.log`.
 
-Signing in to VK Play opens a browser, which is easier in Desktop Mode; FX ID signs in with a code from e-mail anywhere. Sessions are kept in `~/.local/share/awlauncher/accounts`, readable only by your user.
+Signing in to VK Play opens a browser, which is easier in Desktop Mode; FX ID signs in with a code from e-mail anywhere. Sessions are kept in `~/.local/share/awlauncher/accounts`, readable only by your user, and encrypted with a key in the system keyring (KWallet or GNOME Keyring) when it is open. When the keyring is missing or locked, as it can be in Game Mode, a session is saved unencrypted; one encrypted earlier asks you to sign in again until the keyring is open.
 
 ## Where data is kept
 

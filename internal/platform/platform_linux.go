@@ -42,9 +42,6 @@ func ProtectedDirs() []string {
 	return dirs
 }
 
-func Protect(data []byte) ([]byte, error)   { return data, nil }
-func Unprotect(data []byte) ([]byte, error) { return data, nil }
-
 func Language() string {
 	for _, env := range []string{"LC_ALL", "LC_MESSAGES", "LANG"} {
 		if v := os.Getenv(env); v != "" {
