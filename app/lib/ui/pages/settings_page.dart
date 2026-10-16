@@ -138,9 +138,7 @@ class _ProtonItem extends StatelessWidget {
     final chosen = c.protons.where((p) => p.path == c.proton).firstOrNull;
     final sub = chosen != null
         ? chosen.path
-        : t('Newest found: {name}. umu-launcher runs it when installed, otherwise Steam Linux Runtime.', {
-            'name': c.protons.first.name,
-          });
+        : t('Picked automatically: {name}. The game runs on it through umu-launcher.', {'name': c.protons.first.name});
     return ListItem(
       icon: Icons.layers,
       title: Text('Proton${chosen != null ? ' · ${chosen.name}' : ''}'),
@@ -151,7 +149,7 @@ class _ProtonItem extends StatelessWidget {
             MenuItemButton(
               leadingIcon: Icon(c.proton.isEmpty || chosen == null ? Icons.check : null),
               onPressed: () => c.setProton(''),
-              child: Text(t('Newest')),
+              child: Text(t('Automatic')),
             ),
             for (final p in c.protons)
               MenuItemButton(
