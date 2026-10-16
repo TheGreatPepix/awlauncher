@@ -134,6 +134,12 @@ func (g *App) onMessage(message string) {
 			return
 		}
 		g.emitState(false)
+	case "proton":
+		if err := g.session.SetProton(c.Value); err != nil {
+			g.notice(err.Error())
+			return
+		}
+		g.emitState(false)
 	case "hideOnLaunch":
 		if err := g.session.SetHideOnLaunch(c.Value == "on"); err != nil {
 			g.notice(err.Error())

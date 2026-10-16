@@ -8,6 +8,12 @@ import (
 
 const GameExe = "ArmoredWarfare.exe"
 
+// Proton is a Proton build that can run the game on Linux.
+type Proton struct {
+	Name string `json:"name"`
+	Path string `json:"path"`
+}
+
 func gameEnv(base, extra []string) []string {
 	env := make([]string, 0, len(base)+len(extra))
 	for _, kv := range base {

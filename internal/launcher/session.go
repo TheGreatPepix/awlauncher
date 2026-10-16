@@ -39,6 +39,9 @@ func (f *foundGame) set(g *gamefiles.Install) {
 }
 
 func NewSession(cfg *config.Store) *Session {
+	if cfg != nil {
+		platform.SetProton(cfg.Get().Proton)
+	}
 	return &Session{cfg: cfg, client: authClient(), found: &foundGame{}}
 }
 
@@ -78,6 +81,14 @@ func (s *Session) SetPatchBackups(on bool) error {
 
 func (s *Session) SetHideOnLaunch(on bool) error {
 	return s.cfg.Update(func(c *config.Config) { c.KeepOpen = !on })
+}
+
+func (s *Session) SetProton(path string) error {
+	if err := s.cfg.Update(func(c *config.Config) { c.Proton = path }); err != nil {
+		return err
+	}
+	platform.SetProton(path)
+	return nil
 }
 
 func (s *Session) SetAllowMods(on bool) error {

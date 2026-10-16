@@ -18,11 +18,6 @@ import (
 
 const releasesPage = "https://github.com/TheGreatPepix/awlauncher/releases"
 
-// SetupAssetName is the installer the launcher updates itself with. The
-// launcher is a folder, so it updates through the installer instead of
-// replacing one file.
-const SetupAssetName = "AWLauncher-Setup.exe"
-
 var latestReleaseURL = "https://api.github.com/repos/TheGreatPepix/awlauncher/releases/latest"
 
 type releaseAsset struct {
@@ -184,6 +179,6 @@ func Check(client *http.Client, current string) Info {
 	}
 	info.Available = newerRelease(r.Tag, current)
 	_, hasAsset := r.asset(SetupAssetName)
-	info.CanApply = info.Available && hasAsset
+	info.CanApply = info.Available && hasAsset && canInstall()
 	return info
 }

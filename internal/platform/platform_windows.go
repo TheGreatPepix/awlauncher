@@ -73,6 +73,11 @@ func StartGame(exe string, args []string, dir string, env []string) (int, error)
 	return pid, cmd.Process.Release()
 }
 
+// SetProton does nothing on Windows, where the game runs natively.
+func SetProton(string) {}
+
+func Protons() []Proton { return nil }
+
 func RunRedist(path string) error {
 	return exec.Command("cmd", "/c", "start", "", "/wait", path, "/install", "/passive", "/norestart").Run()
 }

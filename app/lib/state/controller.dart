@@ -61,6 +61,11 @@ class Controller extends ChangeNotifier {
   var game = '', fxGame = '', suggestedGame = '', dataDir = '';
   var allowMods = false, patchBackups = true, hideOnLaunch = true;
   var version = '', autostart = 'off', systemLang = 'en';
+
+  /// The Proton builds that can run the game on Linux, best first, and the
+  /// chosen one's path; an empty path runs the first.
+  var protons = <({String name, String path})>[];
+  var proton = '';
   var prefs = const Prefs();
 
   final _log = StringBuffer();
@@ -136,6 +141,12 @@ class Controller extends ChangeNotifier {
 
   void select(String id) {
     selected = id;
+    notifyListeners();
+  }
+
+  void setProton(String path) {
+    proton = path;
+    send({'cmd': 'proton', 'value': path});
     notifyListeners();
   }
 
@@ -277,6 +288,11 @@ class Controller extends ChangeNotifier {
     allowMods = ev['allowMods'] == true;
     patchBackups = ev['patchBackups'] != false;
     hideOnLaunch = ev['hideOnLaunch'] != false;
+    protons = [
+      for (final p in (ev['protons'] as List? ?? const []))
+        if (p is Event) (name: '${p['name'] ?? ''}', path: '${p['path'] ?? ''}'),
+    ];
+    proton = '${ev['proton'] ?? ''}';
     running = ev['running'] == true;
     version = '${ev['version'] ?? ''}';
     autostart = '${ev['autostart'] ?? 'off'}';
