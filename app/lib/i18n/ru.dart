@@ -102,7 +102,8 @@ const _ru = <String, String>{
   'Allow mods': 'Разрешить моды',
   'Keep patch backups': 'Сохранять бэкапы патчей',
   'Hide after the game starts': 'Скрывать после запуска игры',
-  'Picked automatically: {name}. umu-launcher runs it when installed, otherwise Steam Linux Runtime.': 'Выбран автоматически: {name}. Запускается через umu-launcher, если он установлен, иначе через Steam Linux Runtime.',
+  'Picked automatically: {name}. The game runs on it through umu-launcher.':
+      'Выбран автоматически: {name}. Игра запускается на нём через umu-launcher.',
   'Automatic': 'Автоматически',
   'Change': 'Изменить',
   'The launcher goes to the notification area when the game starts. When off, its window stays open.':

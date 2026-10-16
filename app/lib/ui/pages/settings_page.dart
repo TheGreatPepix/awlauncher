@@ -138,9 +138,7 @@ class _ProtonItem extends StatelessWidget {
     final chosen = c.protons.where((p) => p.path == c.proton).firstOrNull;
     final sub = chosen != null
         ? chosen.path
-        : t('Picked automatically: {name}. umu-launcher runs it when installed, otherwise Steam Linux Runtime.', {
-            'name': c.protons.first.name,
-          });
+        : t('Picked automatically: {name}. The game runs on it through umu-launcher.', {'name': c.protons.first.name});
     return ListItem(
       icon: Icons.layers,
       title: Text('Proton${chosen != null ? ' · ${chosen.name}' : ''}'),

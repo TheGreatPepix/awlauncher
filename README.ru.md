@@ -19,7 +19,7 @@
 ## Требования
 
 - Windows 10 или 11, 64-бит.
-- Linux и Steam Deck (x86-64): `AWLauncher-x86_64.AppImage`. Игра запускается через Proton, поэтому нужен Steam с любым Proton, GE-Proton, umu-launcher (есть у Lutris и Heroic) или Wine; см. [Linux и Steam Deck](#linux-и-steam-deck).
+- Linux и Steam Deck (x86-64): `AWLauncher-x86_64.AppImage`. Игра запускается через [umu-launcher](https://github.com/Open-Wine-Components/umu-launcher) и Proton, поэтому нужны umu-launcher и Steam с Proton 10.0; см. [Linux и Steam Deck](#linux-и-steam-deck).
 - Около 70 ГиБ свободного места для новой установки.
 
 ## Начало работы
@@ -60,7 +60,7 @@
 
 Скачайте `AWLauncher-x86_64.AppImage`, сделайте файл исполняемым и запустите. На Steam Deck это делается в режиме рабочего стола; затем щёлкните по файлу правой кнопкой и выберите «Add to Steam», чтобы запускать лаунчер из игрового режима, где он открывается на весь экран.
 
-Лаунчер сам запускает Windows-версию игры в своём префиксе Wine, отдельном для каждой сборки Proton, в `~/.local/share/awlauncher/prefixes`. Если установлен umu-launcher (в `PATH`, в `~/.local/bin` или от Lutris или Heroic), игра идёт через него, иначе через Proton из Steam в Steam Linux Runtime, как это делает сам Steam. Сначала выбирается Proton 10.0, на котором игра точно работает (на Proton 11.0 она не запускается, а с GE-Proton вылетает при загрузке ангара), затем самый новый Proton от Valve, затем самый новый GE-Proton; другой можно выбрать в «Настройки → Proton». Если на Steam Deck ещё ни одна игра не использовала Proton, установите его в Steam (Библиотека → Инструменты → Proton). `AWLAUNCHER_RUNNER` задаёт команду вручную, а вывод игры пишется в `~/.local/share/awlauncher/game.log`.
+Лаунчер запускает Windows-версию игры через umu-launcher (`umu-run` в `PATH` или `~/.local/bin`, либо от Lutris или Heroic) в своём префиксе Wine, отдельном для каждой сборки Proton, в `~/.local/share/awlauncher/prefixes`. В новый префикс сначала ставится Visual C++ Redistributable из папки игры. Сначала выбирается Proton 10.0, на котором игра точно работает (на Proton 11.0 она не запускается, а с GE-Proton вылетает при загрузке ангара), затем самый новый Proton от Valve, затем GE-Proton; другой можно выбрать в «Настройки → Proton». Установите Proton 10.0 в Steam (Библиотека → Инструменты). `AWLAUNCHER_RUNNER` задаёт команду вручную, а вывод игры пишется в `~/.local/share/awlauncher/game.log`.
 
 Вход в VK Play открывает браузер, поэтому его удобнее делать в режиме рабочего стола; FX ID входит по коду из письма где угодно. Сессии хранятся в `~/.local/share/awlauncher/accounts`, их может прочитать только ваш пользователь; если системное хранилище паролей (KWallet или GNOME Keyring) открыто, они шифруются ключом из него. Если хранилища нет или оно заблокировано, как бывает в игровом режиме, сессия сохраняется без шифрования, а зашифрованная раньше попросит войти заново, пока хранилище не откроется.
 

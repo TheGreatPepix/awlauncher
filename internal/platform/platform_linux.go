@@ -217,7 +217,7 @@ func runnerLog() (io.WriteCloser, string, error) {
 }
 
 func runnerCommand(exe string, args []string, dir string, extra []string) (*exec.Cmd, runner, string, error) {
-	r, err := gameRunner(HomeDir(), dir, exec.LookPath)
+	r, err := gameRunner(HomeDir(), exec.LookPath)
 	if err != nil {
 		return nil, r, "", err
 	}

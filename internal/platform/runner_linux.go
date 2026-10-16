@@ -65,8 +65,6 @@ func appendDir(dirs []string, dir string) []string {
 
 var (
 	vdfPath     = regexp.MustCompile(`"path"\s+"((?:[^"\\]|\\.)*)"`)
-	vdfToolID   = regexp.MustCompile(`"require_tool_appid"\s+"(\d+)"`)
-	vdfInstall  = regexp.MustCompile(`"installdir"\s+"((?:[^"\\]|\\.)*)"`)
 	vdfUnescape = strings.NewReplacer(`\\`, `\`, `\"`, `"`)
 )
 
@@ -167,38 +165,6 @@ func isFile(path string) bool {
 	return err == nil && st.Mode().IsRegular()
 }
 
-// steamRuntime finds the Steam Linux Runtime container a Proton build asks for in its toolmanifest.vdf.
-func steamRuntime(proton string, libs []string) string {
-	data, err := os.ReadFile(filepath.Join(proton, "toolmanifest.vdf"))
-	if err != nil {
-		return ""
-	}
-	m := vdfToolID.FindSubmatch(data)
-	if m == nil {
-		return ""
-	}
-	id := string(m[1])
-	for _, lib := range libs {
-		data, err := os.ReadFile(filepath.Join(lib, "steamapps", "appmanifest_"+id+".acf"))
-		if err != nil {
-			continue
-		}
-		if dir := vdfInstall.FindSubmatch(data); dir != nil {
-			entry := filepath.Join(lib, "steamapps", "common", vdfUnescape.Replace(string(dir[1])), "_v2-entry-point")
-			if isFile(entry) {
-				return entry
-			}
-		}
-	}
-	known := map[string]string{"1628350": "SteamLinuxRuntime_sniper", "1391110": "SteamLinuxRuntime_soldier"}[id]
-	for _, lib := range libs {
-		if entry := filepath.Join(lib, "steamapps", "common", known, "_v2-entry-point"); known != "" && isFile(entry) {
-			return entry
-		}
-	}
-	return ""
-}
-
 func findUmu(home string, lookPath func(string) (string, error)) []string {
 	if path, err := lookPath("umu-run"); err == nil {
 		return []string{path}
@@ -246,15 +212,6 @@ func gamePrefix(proton *Proton) (string, error) {
 	return prefix, os.MkdirAll(prefix, 0755)
 }
 
-// linkPfx lets Proton, which keeps its prefix in pfx, umu-launcher and Wine share one folder.
-func linkPfx(prefix string) error {
-	pfx := filepath.Join(prefix, "pfx")
-	if _, err := os.Lstat(pfx); err == nil {
-		return nil
-	}
-	return os.Symlink(".", pfx)
-}
-
 func setDefault(env []string, key, value string) []string {
 	if os.Getenv(key) != "" {
 		return env
@@ -262,17 +219,9 @@ func setDefault(env []string, key, value string) []string {
 	return append(env, key+"="+value)
 }
 
-func joinPaths(key string, paths ...string) string {
-	if old := os.Getenv(key); old != "" {
-		paths = append([]string{old}, paths...)
-	}
-	return key + "=" + strings.Join(paths, ":")
-}
-
-// gameRunner picks how to run a Windows program from dir: AWLAUNCHER_RUNNER,
-// umu-launcher, Proton from Steam or Heroic (in its Steam Linux Runtime when
-// that is installed), then Wine.
-func gameRunner(home, dir string, lookPath func(string) (string, error)) (runner, error) {
+// gameRunner runs Windows programs through umu-launcher with the chosen
+// Proton build, or through AWLAUNCHER_RUNNER when that is set.
+func gameRunner(home string, lookPath func(string) (string, error)) (runner, error) {
 	if custom := strings.Fields(os.Getenv("AWLAUNCHER_RUNNER")); len(custom) > 0 {
 		prefix, err := gamePrefix(nil)
 		if err != nil {
@@ -280,62 +229,33 @@ func gameRunner(home, dir string, lookPath func(string) (string, error)) (runner
 		}
 		return runner{name: filepath.Base(custom[0]), argv: custom, env: setDefault(os.Environ(), "WINEPREFIX", prefix), prefix: prefix}, nil
 	}
-	protons := findProtons(home)
+	umu := findUmu(home, lookPath)
+	if umu == nil {
+		return runner{}, errors.New("umu-launcher is needed to run the game: install it (umu-run in PATH or ~/.local/bin), or set AWLAUNCHER_RUNNER")
+	}
 	var proton *Proton
-	for i := range protons {
-		if protons[i].Path == chosenProton() {
-			proton = &protons[i]
+	if os.Getenv("PROTONPATH") == "" {
+		protons := findProtons(home)
+		for i := range protons {
+			if protons[i].Path == chosenProton() {
+				proton = &protons[i]
+			}
+		}
+		if proton == nil && len(protons) > 0 {
+			proton = &protons[0]
 		}
 	}
-	if proton == nil && len(protons) > 0 {
-		proton = &protons[0]
-	}
-	umu := findUmu(home, lookPath)
-	used := proton
-	if umu != nil && os.Getenv("PROTONPATH") != "" {
-		used = nil
-	}
-	prefix, err := gamePrefix(used)
+	prefix, err := gamePrefix(proton)
 	if err != nil {
 		return runner{}, err
 	}
 	env := setDefault(os.Environ(), "WINEPREFIX", prefix)
-	if umu != nil {
-		if err := linkPfx(prefix); err != nil {
-			return runner{}, err
-		}
-		env = setDefault(env, "GAMEID", umuGameID)
-		env = setDefault(env, "STORE", "none")
-		name := "umu-launcher"
-		if proton != nil && os.Getenv("PROTONPATH") == "" {
-			env = append(env, "PROTONPATH="+proton.Path)
-			name += " with " + proton.Name
-		}
-		return runner{name: name, argv: umu, env: env, prefix: prefix}, nil
-	}
+	env = setDefault(env, "GAMEID", umuGameID)
+	env = setDefault(env, "STORE", "none")
+	name := "umu-launcher"
 	if proton != nil {
-		if err := linkPfx(prefix); err != nil {
-			return runner{}, err
-		}
-		roots := steamRoots(home)
-		client := prefix
-		if len(roots) > 0 {
-			client = roots[0]
-		}
-		env = setDefault(env, "STEAM_COMPAT_DATA_PATH", prefix)
-		env = setDefault(env, "STEAM_COMPAT_CLIENT_INSTALL_PATH", client)
-		env = setDefault(env, "STEAM_COMPAT_INSTALL_PATH", dir)
-		argv := []string{filepath.Join(proton.Path, "proton"), "waitforexitandrun"}
-		name := proton.Name
-		if entry := steamRuntime(proton.Path, steamLibraries(roots)); entry != "" {
-			env = append(env, joinPaths("STEAM_COMPAT_TOOL_PATHS", proton.Path, filepath.Dir(entry)), joinPaths("STEAM_COMPAT_MOUNTS", dir, prefix))
-			argv = append([]string{entry, "--verb=waitforexitandrun", "--"}, argv...)
-			name += " in " + filepath.Base(filepath.Dir(entry))
-		}
-		return runner{name: name, argv: argv, env: env, prefix: prefix}, nil
+		env = append(env, "PROTONPATH="+proton.Path)
+		name += " with " + proton.Name
 	}
-	if wine, err := lookPath("wine"); err == nil {
-		return runner{name: "Wine", argv: []string{wine}, env: env, prefix: prefix}, nil
-	}
-	return runner{}, errors.New("nothing can run the Windows game here: install Proton in Steam (or GE-Proton), umu-launcher or Wine, or set AWLAUNCHER_RUNNER")
+	return runner{name: name, argv: umu, env: env, prefix: prefix}, nil
 }

@@ -19,7 +19,7 @@ A standalone launcher for Armored Warfare, for Windows. It installs, updates and
 ## Requirements
 
 - Windows 10 or 11, 64-bit.
-- Linux and Steam Deck (x86-64): `AWLauncher-x86_64.AppImage`. The game runs through Proton, so Steam with any Proton build, GE-Proton, umu-launcher (Lutris and Heroic have it) or Wine is needed; see [Linux and Steam Deck](#linux-and-steam-deck).
+- Linux and Steam Deck (x86-64): `AWLauncher-x86_64.AppImage`. The game runs through [umu-launcher](https://github.com/Open-Wine-Components/umu-launcher) and Proton, so umu-launcher and Steam with Proton 10.0 are needed; see [Linux and Steam Deck](#linux-and-steam-deck).
 - About 70 GiB of free space for a new install.
 
 ## Getting started
@@ -58,7 +58,7 @@ Only one copy of the launcher runs at a time; starting another brings the open w
 
 Download `AWLauncher-x86_64.AppImage`, make it executable and start it. On Steam Deck, do it in Desktop Mode, then right-click the file and pick "Add to Steam" to start the launcher from Game Mode, where it fills the screen.
 
-The launcher runs the Windows game itself, in a Wine prefix of its own for each Proton build, in `~/.local/share/awlauncher/prefixes`. It uses umu-launcher when it is installed (in `PATH`, `~/.local/bin`, or the one of Lutris or Heroic), and otherwise Proton from Steam in the Steam Linux Runtime, as Steam does. Proton 10.0 is picked first, since the game is known to run on it (it does not start on Proton 11.0 and crashes in the garage with GE-Proton), then the newest Proton from Valve, then the newest GE-Proton; Settings → Proton picks another. On a Steam Deck where no game has used Proton yet, install one in Steam (Library → Tools → Proton). `AWLAUNCHER_RUNNER` overrides the command, and the game's output goes to `~/.local/share/awlauncher/game.log`.
+The launcher runs the Windows game through umu-launcher (`umu-run` in `PATH` or `~/.local/bin`, or the one of Lutris or Heroic), in a Wine prefix of its own for each Proton build, in `~/.local/share/awlauncher/prefixes`. A new prefix first gets the Visual C++ Redistributable from the game folder. Proton 10.0 is picked first, since the game is known to run on it (it does not start on Proton 11.0 and crashes in the garage with GE-Proton), then the newest Proton from Valve, then GE-Proton; Settings → Proton picks another. Install Proton 10.0 in Steam (Library → Tools). `AWLAUNCHER_RUNNER` overrides the command, and the game's output goes to `~/.local/share/awlauncher/game.log`.
 
 Signing in to VK Play opens a browser, which is easier in Desktop Mode; FX ID signs in with a code from e-mail anywhere. Sessions are kept in `~/.local/share/awlauncher/accounts`, readable only by your user, and encrypted with a key in the system keyring (KWallet or GNOME Keyring) when it is open. When the keyring is missing or locked, as it can be in Game Mode, a session is saved unencrypted; one encrypted earlier asks you to sign in again until the keyring is open.
 
