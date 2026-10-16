@@ -1,12 +1,17 @@
 package platform
 
 import (
+	"errors"
 	"os"
 	"path/filepath"
 	"strings"
 )
 
 const GameExe = "ArmoredWarfare.exe"
+
+// ErrKeyUnavailable means a saved session cannot be opened now because the
+// key it was sealed with, in the system keyring, cannot be read.
+var ErrKeyUnavailable = errors.New("the system keyring is locked or missing")
 
 // Proton is a Proton build that can run the game on Linux.
 type Proton struct {

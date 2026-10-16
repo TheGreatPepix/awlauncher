@@ -48,6 +48,9 @@ func Load(userID int64) (string, error) {
 		return "", err
 	}
 	clear, err := platform.Unprotect(data)
+	if errors.Is(err, platform.ErrKeyUnavailable) {
+		return "", ErrNeedLogin
+	}
 	if err != nil {
 		return "", err
 	}
