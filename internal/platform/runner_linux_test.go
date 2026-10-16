@@ -40,6 +40,7 @@ func fakeDeck(t *testing.T) (home, card string) {
 		filepath.Join(steam, "steamapps", "common", "Proton 9.0 (Beta)"),
 		filepath.Join(steam, "steamapps", "common", "Proton - Experimental"),
 		filepath.Join(card, "steamapps", "common", "Proton 10.0"),
+		filepath.Join(card, "steamapps", "common", "Proton 11.0"),
 		filepath.Join(steam, "compatibilitytools.d", "GE-Proton9-27"),
 		filepath.Join(steam, "compatibilitytools.d", "GE-Proton10-15"),
 	} {
@@ -85,7 +86,7 @@ func clearRunnerEnv(t *testing.T) {
 func TestFindProtonsPrefersValve(t *testing.T) {
 	home, _ := fakeDeck(t)
 	got := names(findProtons(home))
-	want := []string{"Proton 10.0", "Proton 9.0 (Beta)", "GE-Proton10-15", "GE-Proton9-27", "Proton - Experimental"}
+	want := []string{"Proton 10.0", "Proton 11.0", "Proton 9.0 (Beta)", "GE-Proton10-15", "GE-Proton9-27", "Proton - Experimental"}
 	if !slices.Equal(got, want) {
 		t.Fatalf("findProtons = %q, want %q", got, want)
 	}

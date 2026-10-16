@@ -94,12 +94,17 @@ type protonBuild struct {
 
 var digits = regexp.MustCompile(`\d+`)
 
+var provenProtons = []string{"Proton 10.0"}
+
 func newProtonBuild(name, dir string) protonBuild {
 	lower := strings.ToLower(name)
-	// Valve's numbered builds come first: with GE-Proton the game crashes
-	// when the garage loads.
+	// Builds the game is known to run on come first, then Valve's numbered
+	// builds: with GE-Proton the game crashes when the garage loads, and with
+	// Proton 11.0 it does not start.
 	rank := 2
 	switch {
+	case slices.Contains(provenProtons, name):
+		rank = -1
 	case strings.Contains(lower, "experimental") || strings.Contains(lower, "hotfix"):
 		rank = 3
 	case strings.HasPrefix(lower, "proton "):
