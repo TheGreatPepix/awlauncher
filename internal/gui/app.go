@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"log"
+	"runtime"
 	"strconv"
 	"strings"
 	"sync"
@@ -49,6 +50,11 @@ type App struct {
 	prompts    map[int]*pendingPrompt
 	nextPrompt int
 }
+
+// trayHides says whether the window can hide to the tray after the game
+// starts. On Linux there is no tray to bring it back from, and in Steam's
+// Game Mode the game takes the screen anyway.
+const trayHides = runtime.GOOS == "windows"
 
 func newApp(store *config.Store, logs *logBuffer, updated bool) *App {
 	return &App{store: store, session: launcher.NewSession(store), logs: logs, updated: updated, prompts: map[int]*pendingPrompt{}}
@@ -103,7 +109,7 @@ func (g *App) run(op launcher.Operation, done string, action func(s *launcher.Se
 				g.host.showWindow()
 			case launched:
 				result["status"] = "launched"
-				if others == 0 && !g.store.Get().KeepOpen {
+				if others == 0 && !g.store.Get().KeepOpen && trayHides {
 					result["hidden"] = true
 					g.host.hideWindow()
 				}
