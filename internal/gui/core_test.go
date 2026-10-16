@@ -26,7 +26,7 @@ func startCore(t *testing.T) *coreRun {
 	outR, outW := io.Pipe()
 	r := &coreRun{in: inW, events: make(chan map[string]any, 100), code: make(chan int, 1)}
 	go func() {
-		r.code <- RunCore(inR, outW, "")
+		r.code <- RunCore(inR, outW, "", false)
 		outW.Close()
 	}()
 	go func() {

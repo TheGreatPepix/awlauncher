@@ -11,6 +11,7 @@ import (
 
 	"github.com/TheGreatPepix/awlauncher/internal/gui/startup"
 	"github.com/TheGreatPepix/awlauncher/internal/gui/ui"
+	"github.com/TheGreatPepix/awlauncher/internal/gui/update"
 	"github.com/TheGreatPepix/awlauncher/internal/launcher/config"
 	"github.com/TheGreatPepix/awlauncher/internal/launcher/gamefiles"
 )
@@ -107,8 +108,9 @@ func (h *coreHost) openSignIn(string, func(string, string), func()) error {
 }
 
 // RunCore runs the launcher without a window, for the window process that
-// started it. app is that process's executable, which starts with Windows.
-func RunCore(in io.Reader, out io.Writer, app string) int {
+// started it. app is that process's executable, which starts with Windows;
+// updated says the installer of a newer version started it.
+func RunCore(in io.Reader, out io.Writer, app string, updated bool) int {
 	ui.SetLanguage(loadPrefs().Lang)
 	if app != "" {
 		startup.SetTarget(app)
@@ -121,8 +123,11 @@ func RunCore(in io.Reader, out io.Writer, app string) int {
 		h.sendEvent(map[string]any{"type": "fatal", "message": err.Error()})
 		return 1
 	}
-	g := newApp(config.NewStore(cfg), logs, false)
-	g.host, g.core = h, true
+	g := newApp(config.NewStore(cfg), logs, updated)
+	g.host, g.core, g.appExe = h, true, app
+	if app != "" {
+		go update.RemoveLeftovers(app)
+	}
 	logs.follow(g.emitLog)
 	startup.Refresh()
 	go g.watchProgress()

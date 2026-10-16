@@ -11,6 +11,7 @@ import (
 
 func main() {
 	app := flag.String("app", "", "the window's executable, which starts with Windows")
+	updated := flag.Bool("updated", false, "the installer of a newer version started the window")
 	flag.Parse()
-	os.Exit(gui.RunCore(os.Stdin, os.Stdout, *app))
+	os.Exit(gui.RunCore(os.Stdin, os.Stdout, *app, *updated))
 }

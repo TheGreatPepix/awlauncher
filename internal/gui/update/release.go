@@ -18,6 +18,11 @@ import (
 
 const releasesPage = "https://github.com/TheGreatPepix/awlauncher/releases"
 
+// SetupAssetName is the installer of the Flutter launcher. The Flutter
+// window is a folder, so it updates through the installer instead of
+// replacing one file.
+const SetupAssetName = "AWLauncher-Setup.exe"
+
 var latestReleaseURL = "https://api.github.com/repos/TheGreatPepix/awlauncher/releases/latest"
 
 type releaseAsset struct {
@@ -164,7 +169,9 @@ type Info struct {
 	Error     string `json:"error,omitempty"`
 }
 
-func Check(client *http.Client, current string) Info {
+// Check looks for a newer release. The update can be applied when the
+// release has asset, the file this build updates itself with.
+func Check(client *http.Client, current, asset string) Info {
 	info := Info{Type: "update", Current: current, Page: releasesPage + "/latest"}
 	r, err := latestRelease(client, current)
 	if err != nil {
@@ -176,7 +183,7 @@ func Check(client *http.Client, current string) Info {
 		info.Published = r.Published.Local().Format("02.01.2006")
 	}
 	info.Available = newerRelease(r.Tag, current)
-	_, hasExe := r.asset(SelfAssetName)
-	info.CanApply = info.Available && hasExe
+	_, hasAsset := r.asset(asset)
+	info.CanApply = info.Available && hasAsset
 	return info
 }

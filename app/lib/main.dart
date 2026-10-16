@@ -21,7 +21,7 @@ Future<void> main(List<String> args) async {
     if (path == null) {
       core = _MissingCore();
     } else {
-      core = await ProcessCore.start(path, app: exe);
+      core = await ProcessCore.start(path, app: exe, updated: args.contains('--updated'));
     }
   }
   runApp(AwApp(controller: Controller(core, SystemDesktop())));
