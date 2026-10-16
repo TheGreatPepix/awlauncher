@@ -40,12 +40,17 @@ class Operation {
     : id = _int(j['id']),
       title = '${j['title'] ?? ''}',
       game = j['game'] == true,
-      account = j['account'] as String?;
+      account = j['account'] as String?,
+      cancel = j['cancel'] as String?;
 
   final int id;
   final String title;
   final bool game;
   final String? account;
+
+  /// How the person can cancel this download: "install" deletes the new
+  /// client, "update" asks whether to delete it.
+  final String? cancel;
 }
 
 class TaskProgress {

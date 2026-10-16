@@ -118,6 +118,9 @@ func SyncBranch(client *http.Client, rel BranchRelease, mainRoot, root string, a
 	if mainRoot != "" {
 		opt.Reuse = func(f remoteFile, dst string) bool { return linkFromMain(mainRoot, f, dst) }
 	}
+	if err := markPending(root, set.Files); err != nil {
+		return BranchState{}, err
+	}
 	if _, err := syncFiles(root, set, opt); err != nil {
 		return BranchState{}, err
 	}
@@ -147,6 +150,7 @@ func SyncBranch(client *http.Client, rel BranchRelease, mainRoot, root string, a
 	if err := fileutil.WriteAtomic(branchStatePath(root), out); err != nil {
 		return BranchState{}, err
 	}
+	clearPending(root)
 	log.Printf("%s %s is ready.\n", branch, state.Version)
 	return state, nil
 }

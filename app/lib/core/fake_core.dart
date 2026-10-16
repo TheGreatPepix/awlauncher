@@ -157,7 +157,11 @@ class FakeCore implements Core {
           context: ['Checking for updates...', 'Update available: 442 -> 443 (1 patches).'],
           (value, ok) {
             if (ok && value == 'yes') {
-              _startDownload(title);
+              _startDownload(title, 1, () {
+                running = true;
+                _emit({'type': 'done', 'status': 'launched', 'id': 1, 'title': title, 'hidden': !keepOpen});
+                _emit({'type': 'game', 'running': true});
+              });
             } else {
               _end(1);
               _emit({'type': 'done', 'status': 'cancelled', 'id': 1, 'title': title});
@@ -167,6 +171,26 @@ class FakeCore implements Core {
       case 'playLast':
         final last = accounts.where((a) => a['last'] == true).firstOrNull;
         if (last != null) send({'cmd': 'play', 'account': last['id']});
+      case 'downloadClient' || 'updateClient':
+        final install = c['cmd'] == 'downloadClient';
+        final title = install ? 'Downloading game' : 'Updating VK Play';
+        _begin({'id': 2, 'title': title, 'game': true, 'cancel': install ? 'install' : 'update'});
+        _startDownload(title, 2, () => _emit({'type': 'done', 'status': 'ok', 'id': 2, 'title': title}));
+      case 'cancel':
+        final op = ops.where((o) => o['cancel'] != null).firstOrNull;
+        if (op == null) return;
+        _download?.cancel();
+        paused = false;
+        _emit({'type': 'progress', 'active': false, 'done': 0, 'total': 0});
+        _end(op['id'] as int);
+        final removed = c['value'] == 'remove' || op['cancel'] == 'install';
+        _emit({
+          'type': 'done',
+          'status': 'cancelled',
+          'id': op['id'],
+          'title': op['title'],
+          'message': removed ? 'Download cancelled, the client is removed' : 'Download stopped',
+        });
       case 'pause':
         paused = true;
       case 'resume':
@@ -262,7 +286,12 @@ class FakeCore implements Core {
           'Which client branch should ${a['name']} play?',
           options: [
             {'value': 'default', 'label': 'default', 'detail': 'The live servers', 'current': a['branch'] == null},
-            {'value': 'supertest', 'label': 'supertest', 'detail': 'Test servers', 'current': a['branch'] == 'supertest'},
+            {
+              'value': 'supertest',
+              'label': 'supertest',
+              'detail': 'Test servers',
+              'current': a['branch'] == 'supertest',
+            },
           ],
           (value, ok) {
             if (ok) {
@@ -275,7 +304,12 @@ class FakeCore implements Core {
         _begin({'id': 6, 'title': 'Activating a key', 'account': c['account']});
         _ask('Activating a key', 'key', 'Key to activate', (value, ok) {
           _end(6);
-          _emit({'type': 'done', 'status': ok ? 'ok' : 'cancelled', 'title': 'Activating a key', 'message': 'Key activated'});
+          _emit({
+            'type': 'done',
+            'status': ok ? 'ok' : 'cancelled',
+            'title': 'Activating a key',
+            'message': 'Key activated',
+          });
         });
       case 'gameFolder' || 'fxFolder' || 'branchFolder':
         _begin({'id': 7, 'title': 'Choosing the game folder', 'game': true});
@@ -324,7 +358,7 @@ class FakeCore implements Core {
     }
   }
 
-  void _startDownload(String title) {
+  void _startDownload(String title, int id, void Function() finished) {
     const gib = 1 << 30;
     const total = 3.4 * gib;
     var done = 0.0;
@@ -351,10 +385,8 @@ class FakeCore implements Core {
       if (done >= total) {
         timer.cancel();
         _emit({'type': 'log', 'text': 'Downloading   done: 3.4 GiB in 1m19s, 44.0 MiB/s\n'});
-        _end(1);
-        running = true;
-        _emit({'type': 'done', 'status': 'launched', 'id': 1, 'title': title, 'hidden': !keepOpen});
-        _emit({'type': 'game', 'running': true});
+        _end(id);
+        finished();
       }
     });
   }

@@ -61,6 +61,8 @@ func (g *App) onMessage(message string) {
 		if progress.Default.Resume() {
 			log.Print("Resumed.")
 		}
+	case "cancel":
+		g.cancelDownload(c.Value == "remove")
 	case "autostart":
 		if err := startup.Set(c.Value); err != nil {
 			g.notice("Cannot change the start with Windows: " + err.Error())
@@ -101,9 +103,11 @@ func (g *App) onMessage(message string) {
 		if acc, ok := g.findAccount(c.Account); ok {
 			kind, branch := c.Value, c.Branch
 			op := launcher.AccountOp("Downloading game", acc)
-			op.Game = true
+			op.Game, op.Cancel = true, launcher.CancelInstall
 			g.run(op, "", func(s *launcher.Session) (bool, error) {
-				return false, s.DownloadClient(acc, kind, branch)
+				before := g.store.Get()
+				err := s.DownloadClient(acc, kind, branch)
+				return false, g.afterCancel(err, func() error { return s.DiscardDownload(kind, branch, before) })
 			})
 		}
 	case "verify", "removeBranch", "removeMainClient", "updateClient", "openClientFolder", "clearDownloads":
@@ -218,8 +222,10 @@ func (g *App) clientCommand(cmd, kind, branch string) {
 		op.Title = "Deleting downloaded patches"
 		action = func(s *launcher.Session) error { return s.ClearDownloads(c.Dir) }
 	case "updateClient":
-		op.Title = "Updating " + c.Name()
-		action = func(s *launcher.Session) error { return s.UpdateClient(c) }
+		op.Title, op.Cancel = "Updating "+c.Name(), launcher.CancelUpdate
+		action = func(s *launcher.Session) error {
+			return g.afterCancel(s.UpdateClient(c), func() error { return s.DiscardClient(c) })
+		}
 	case "verify":
 		op.Title = "Checking " + c.Name()
 		action = func(s *launcher.Session) error { return s.VerifyClient(c) }

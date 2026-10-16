@@ -12,7 +12,15 @@ type Operation struct {
 	Title   string `json:"title"`
 	Game    bool   `json:"game,omitempty"`
 	Account string `json:"account,omitempty"`
+	// Cancel is set on a download the person can cancel: CancelInstall or
+	// CancelUpdate.
+	Cancel string `json:"cancel,omitempty"`
 }
+
+const (
+	CancelInstall = "install"
+	CancelUpdate  = "update"
+)
 
 func AccountOp(title string, acc config.Account) Operation {
 	return Operation{Title: title, Account: strconv.FormatInt(acc.UserID, 10)}
@@ -65,4 +73,16 @@ func (o *Ops) List() []Operation {
 	o.mu.Lock()
 	defer o.mu.Unlock()
 	return append([]Operation{}, o.list...)
+}
+
+// Cancellable is the running download the person can cancel.
+func (o *Ops) Cancellable() (Operation, bool) {
+	o.mu.Lock()
+	defer o.mu.Unlock()
+	for _, op := range o.list {
+		if op.Game && op.Cancel != "" {
+			return op, true
+		}
+	}
+	return Operation{}, false
 }

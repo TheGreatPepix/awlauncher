@@ -32,6 +32,9 @@ type Task struct {
 
 func (t *Task) Write(p []byte) (int, error) {
 	t.board.Wait()
+	if err := t.board.Err(); err != nil {
+		return 0, err
+	}
 	t.Add(int64(len(p)))
 	return len(p), nil
 }
@@ -61,6 +64,7 @@ type Board struct {
 	active    bool
 	pausable  atomic.Bool
 	gate      pauseGate
+	abort     cancelGate
 	title     string
 	unit      progressUnit
 	total     int64

@@ -92,6 +92,7 @@ class Controller extends ChangeNotifier {
   /// Whether the running operation waits, paused by the person.
   bool get paused => progress.paused && busy;
   Operation? get gameOp => ops.where((o) => o.game).firstOrNull;
+  Operation? get cancellableOp => ops.where((o) => o.game && o.cancel != null).firstOrNull;
   Operation? accountOp(String id) => ops.where((o) => o.account == id).firstOrNull;
   Account? get selectedAccount => accounts.where((a) => a.id == selected).firstOrNull;
   bool canPlay(Account? a) => a != null && gameOp == null && accountOp(a.id) == null;
@@ -320,7 +321,7 @@ class Controller extends ChangeNotifier {
       case 'launched' when ev['hidden'] == true:
         _notices.add(Notice(t('Game started. AWLauncher is in the notification area.')));
       case 'cancelled':
-        _notices.add(Notice(t('Cancelled')));
+        _notices.add(Notice(message.isEmpty ? t('Cancelled') : tb(message)));
       case 'ok' when message.isNotEmpty:
         _notices.add(Notice(tb(message), kind: NoticeKind.ok));
     }

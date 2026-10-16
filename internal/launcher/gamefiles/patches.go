@@ -52,6 +52,9 @@ func InstallPatches(gameRoot string, patches []patchInfo, keepBackups bool) erro
 	var next *prefetch
 	defer func() { next.stop() }()
 	for i, p := range patches {
+		if err := progress.Default.Err(); err != nil {
+			return err
+		}
 		if p.Source != build {
 			return errors.New("catalog patch sequence is inconsistent")
 		}

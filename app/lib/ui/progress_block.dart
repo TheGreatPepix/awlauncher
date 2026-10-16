@@ -42,6 +42,7 @@ class ProgressBlock extends StatelessWidget {
     }
     if (!p.active && p.paused && c.busy) meta = t('paused');
     final pausable = p.paused ? c.busy : p.active && p.pausable;
+    final cancellable = c.cancellableOp != null && (p.active || p.paused);
     final tasks = p.active ? p.tasks.take(4).toList() : const <TaskProgress>[];
     return Padding(
       padding: const EdgeInsets.fromLTRB(4, 0, 4, 22),
@@ -93,6 +94,21 @@ class ProgressBlock extends StatelessWidget {
                     ),
                   ),
                 ),
+              if (cancellable)
+                SizedBox(
+                  height: 32,
+                  child: TextButton.icon(
+                    key: const Key('cancelDownload'),
+                    style: TextButton.styleFrom(
+                      minimumSize: const Size(0, 32),
+                      padding: const EdgeInsets.symmetric(horizontal: 12),
+                      foregroundColor: scheme.error,
+                    ),
+                    onPressed: () => confirmCancelDownload(context, c),
+                    icon: const Icon(Icons.close_rounded, size: 18),
+                    label: Text(t('Cancel')),
+                  ),
+                ),
             ],
           ),
           if (tasks.isNotEmpty) ...[
@@ -107,6 +123,42 @@ class ProgressBlock extends StatelessWidget {
       ),
     );
   }
+}
+
+/// Asks before a download stops. A new client is always deleted; an update
+/// asks whether its client goes too.
+Future<void> confirmCancelDownload(BuildContext context, Controller c) async {
+  final op = c.cancellableOp;
+  if (op == null) return;
+  final install = op.cancel == 'install';
+  final value = await showAw<String>(
+    context,
+    (context) => AwDialog(
+      icon: Icons.delete_outline_rounded,
+      danger: true,
+      op: tb(op.title),
+      title: t(install ? 'Cancel the download?' : 'Cancel the update?'),
+      body: [
+        DialogText(
+          t(
+            install
+                ? 'The download stops and the files of this client are deleted. The game folder setting is forgotten if the download chose it.'
+                : 'The update stops. The client can be deleted together with it, or kept to finish the update later from the same place.',
+          ),
+        ),
+      ],
+      actions: [
+        TextButton(
+          onPressed: () => closeDialog(context),
+          child: Text(t(install ? 'Keep downloading' : 'Keep updating')),
+        ),
+        if (!install)
+          TextButton(onPressed: () => closeDialog(context, 'keep'), child: Text(t('Stop, keep the client'))),
+        dangerButton(context, t('Cancel and delete'), () => closeDialog(context, 'remove')),
+      ],
+    ),
+  );
+  if (value != null && c.cancellableOp?.id == op.id) c.send({'cmd': 'cancel', 'value': value});
 }
 
 class _TaskRow extends StatelessWidget {

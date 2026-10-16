@@ -3,6 +3,7 @@ package gui
 import (
 	"encoding/json"
 	"errors"
+	"fmt"
 	"log"
 	"strconv"
 	"strings"
@@ -36,6 +37,7 @@ type App struct {
 	ops     launcher.Ops
 	logs    *logBuffer
 	gameUp  atomic.Bool
+	discard atomic.Bool // a cancelled download also removes its client
 
 	pageReady atomic.Bool
 	appExe    string // the window's executable
@@ -75,6 +77,10 @@ func (g *App) run(op launcher.Operation, done string, action func(s *launcher.Se
 		g.notice(reason)
 		return
 	}
+	if op.Game {
+		g.discard.Store(false)
+		progress.Default.Arm()
+	}
 	g.emitState(false)
 	s := g.session.WithUI(g.opUI(op.Title))
 	go func() {
@@ -85,6 +91,10 @@ func (g *App) run(op launcher.Operation, done string, action func(s *launcher.Se
 			switch {
 			case errors.Is(err, launcher.ErrCancelled):
 				result["status"] = "cancelled"
+				var c cancelled
+				if errors.As(err, &c) {
+					result["message"] = c.message
+				}
 			case err != nil:
 				message := strings.TrimSpace(err.Error())
 				result["status"] = "error"
@@ -107,6 +117,42 @@ func (g *App) run(op launcher.Operation, done string, action func(s *launcher.Se
 			g.emit(result)
 		})
 	}()
+}
+
+// cancelled ends a download the person cancelled, with a message for them.
+type cancelled struct{ message string }
+
+func (c cancelled) Error() string { return c.message }
+
+func (c cancelled) Unwrap() error { return launcher.ErrCancelled }
+
+// cancelDownload stops the running download. A new install is always removed;
+// an update removes its client only when the person asks for it.
+func (g *App) cancelDownload(remove bool) {
+	op, ok := g.ops.Cancellable()
+	if !ok {
+		return
+	}
+	g.discard.Store(remove || op.Cancel == launcher.CancelInstall)
+	if progress.Default.Cancel() {
+		log.Print("Cancelling ", op.Title, "...")
+	}
+}
+
+// afterCancel runs once a cancellable download returns. All its workers are
+// done by then, so nothing writes into the client while it is removed.
+func (g *App) afterCancel(err error, discard func() error) error {
+	if !progress.Default.Cancelled() {
+		return err
+	}
+	if !g.discard.Load() {
+		log.Print("The download is stopped. It goes on from the same place next time.")
+		return cancelled{"Download stopped"}
+	}
+	if err := discard(); err != nil {
+		return fmt.Errorf("remove the cancelled client: %w", err)
+	}
+	return cancelled{"Download cancelled, the client is removed"}
 }
 
 func (g *App) play(acc config.Account) {

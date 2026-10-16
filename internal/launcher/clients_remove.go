@@ -7,6 +7,7 @@ import (
 	"path/filepath"
 	"strings"
 
+	"github.com/TheGreatPepix/awlauncher/internal/launcher/config"
 	"github.com/TheGreatPepix/awlauncher/internal/launcher/gamefiles"
 	"github.com/TheGreatPepix/awlauncher/internal/progress"
 )
@@ -102,5 +103,47 @@ func (s *Session) removeClientDir(dir string) error {
 	if s.ui.Yes("Delete the folder with everything in it?", false) {
 		return os.RemoveAll(dir)
 	}
+	return nil
+}
+
+// DiscardDownload removes what a cancelled download of a new client wrote. A
+// game folder the download chose is forgotten again, as if it never started.
+func (s *Session) DiscardDownload(kind, branch string, before config.Config) error {
+	cfg := s.cfg.Get()
+	dir := cfg.Game
+	switch kind {
+	case gamefiles.KindFX:
+		dir = cfg.FXGame
+	case gamefiles.KindBranch:
+		dir = cfg.BranchDir(branch)
+	}
+	if dir != "" {
+		if err := gamefiles.RemoveClientFiles(dir); err != nil {
+			return err
+		}
+		s.ui.Sayf("The download is cancelled; its files are removed from %s.", dir)
+	}
+	if kind == gamefiles.KindVK {
+		s.found.set(nil)
+	}
+	return s.cfg.Update(func(c *config.Config) {
+		if before.Game == "" && c.Game != "" && !gamefiles.IsVKInstall(c.Game) {
+			c.Game = ""
+		}
+		if _, ok := gamefiles.ReadBranchState(c.FXGame); before.FXGame == "" && c.FXGame != "" && !ok {
+			c.FXGame = ""
+		}
+	})
+}
+
+// DiscardClient removes an installed client whose update was cancelled.
+func (s *Session) DiscardClient(c gamefiles.Client) error {
+	if err := s.removeClientDir(c.Dir); err != nil {
+		return err
+	}
+	if c.Kind == gamefiles.KindVK {
+		s.found.set(nil)
+	}
+	s.ui.Sayf("The update is cancelled; %s is removed.", c.Name())
 	return nil
 }
